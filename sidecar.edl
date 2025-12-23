@@ -36,7 +36,7 @@ enclave {
             [in] size_t offset,
             [out, size=chunk_size] uint8_t* buffer,
             size_t chunk_size,
-            [out] size_t* bytes_read
+            [out] uint64_t* bytes_read
         );
         
         // print: just your everyday stdout

@@ -17,7 +17,7 @@ void ocall_read_file_chunk(
     size_t offset,
     uint8_t* buffer,
     size_t chunk_size,
-    size_t* bytes_read
+    uint64_t* bytes_read
 ) {
     // note: this could definitely be faster by not opening and closing the file for each chunk
     // but a one-time performance gain at startup is not a big win for us, large services
