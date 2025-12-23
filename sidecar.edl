@@ -1,5 +1,8 @@
 enclave {
     from "sgx_tstdc.edl" import *;
+    
+    include "sgx_key_exchange.h"
+    include "sgx_report.h"
 
     // note: i am trying to keep the interface as clean and minimal as 
     // possible here as we want the enclave to be easy to reason about.
