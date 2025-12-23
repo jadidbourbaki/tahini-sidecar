@@ -8,17 +8,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
-    ocaml \
-    ocamlbuild \
-    automake \
-    autoconf \
-    libtool \
     wget \
-    python3 \
     libssl-dev \
-    git \
-    cmake \
-    perl \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
