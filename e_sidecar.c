@@ -1,6 +1,7 @@
 #include "sidecar_t.h"
 #include <sgx_tcrypto.h>
 #include <sgx_trts.h>
+#include <sgx_report.h>
 #include <string.h>
 
 #include "sidecar.h"
