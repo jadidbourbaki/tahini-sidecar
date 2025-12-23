@@ -14,10 +14,10 @@ void ocall_print(const char* str) {
 // ocall_read_file_chunk: reads a chunk of the binary file from disk
 void ocall_read_file_chunk(
     const char* path,
-    size_t offset,
+    uint64_t offset,
     uint8_t* buffer,
-    size_t chunk_size,
-    size_t bytes_read[1]
+    uint64_t chunk_size,
+    uint64_t bytes_read[1]
 ) {
     // note: this could definitely be faster by not opening and closing the file for each chunk
     // but a one-time performance gain at startup is not a big win for us, large services
