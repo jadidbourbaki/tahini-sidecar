@@ -1,0 +1,12 @@
+enclave {
+    from "sgx_tstdc.edl" import *;
+
+    trusted {
+        public void ecall_hello_world([in, string] const char* message);
+    };
+
+    untrusted {
+        void ocall_print_string([in, string] const char* str);
+    };
+};
+
