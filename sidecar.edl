@@ -13,9 +13,9 @@ enclave {
         // generate_credentials for launching the service
         public sgx_status_t ecall_generate_credentials(
             [out] uint8_t* secret_key,
-            size_t secret_key_len,
+            uint64_t secret_key_len,
             [out] uint8_t* public_key,
-            size_t public_key_len
+            uint64_t public_key_len
         );
         
         // get_attestation_report: get report with hash + public key for remote attestation
@@ -23,9 +23,9 @@ enclave {
             [in] const sgx_target_info_t* target_info,
             [out] sgx_report_t* report,
             [out, size=hash_len] uint8_t* binary_hash,
-            size_t hash_len,
+            uint64_t hash_len,
             [out, size=pubkey_len] uint8_t* public_key,
-            size_t pubkey_len
+            uint64_t pubkey_len
         );
     };
 
@@ -33,9 +33,9 @@ enclave {
         // read_file_chunk: read a chunk of the binary file from disk
         void ocall_read_file_chunk(
             [in, string] const char* path,
-            [in] size_t offset,
+            [in] uint64_t offset,
             [out, size=chunk_size] uint8_t* buffer,
-            size_t chunk_size,
+            uint64_t chunk_size,
             [out] uint64_t* bytes_read
         );
         

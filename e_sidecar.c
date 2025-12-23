@@ -62,9 +62,9 @@ sgx_status_t ecall_hash(const char* binary_path) {
 // ecall_generate_credentials: generates ECDH key pair and sends to caller
 sgx_status_t ecall_generate_credentials(
     uint8_t* secret_key_out,
-    size_t secret_key_len,
+    uint64_t secret_key_len,
     uint8_t* public_key_out,
-    size_t public_key_len
+    uint64_t public_key_len
 ) {
     if (!initialized) {
         return SGX_ERROR_UNEXPECTED;
@@ -118,9 +118,9 @@ sgx_status_t ecall_get_attestation_report(
     const sgx_target_info_t* target_info,
     sgx_report_t* report,
     uint8_t* binary_hash_out,
-    size_t hash_len,
+    uint64_t hash_len,
     uint8_t* public_key_out,
-    size_t pubkey_len
+    uint64_t pubkey_len
 ) {
     if (!initialized) {
         return SGX_ERROR_UNEXPECTED;
