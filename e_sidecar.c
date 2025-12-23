@@ -30,7 +30,7 @@ sgx_status_t ecall_hash(const char* binary_path) {
     // read file in chunks via OCALL and hash inside enclave
     uint8_t buffer[CHUNK_SIZE];
     size_t offset = 0;
-    uint64_t bytes_read_arr[1] = {0};
+    size_t bytes_read_arr[1] = {0};
     
     // read the file in chunks and hash inside the enclave
     do {
