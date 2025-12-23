@@ -3,8 +3,9 @@
 <img src="share/cover.png" width="150"></img>
 
 A lightweight attestation sidecar that is part of the [Tahini Project](https://space.babman.io/projects/compliance.html) led by Dr. Kinan Albab's
-[SPACE Lab](https://space.babman.io/index.html) at Boston University. The Tahini sidecar implements a mani-
-fest attestation protocol that remote services must deploy in a TEE and point to the
+[SPACE Lab](https://space.babman.io/index.html) at Boston University. 
+
+The Tahini sidecar implements a manifest attestation protocol that remote services must deploy in a TEE and point to the
 service binary they desire to deploy. The sidecar performs the
 following steps: (i) it hashes the service binary and stores that
 hash, (ii) it launches the binary outside the TEE by calling
