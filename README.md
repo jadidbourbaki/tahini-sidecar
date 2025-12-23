@@ -1,117 +1,42 @@
-# tahini sidecar
+# Tahini Sidecar
 
-A lightweight attestation sidecar that is part of the broader [tahini project](https://space.babman.io/projects/compliance.html) that is part of Dr. Kinan Albab's [SPACE Lab](https://space.babman.io/index.html) at Boston University.
+<img src="share/cover.png" width="150"></img>
 
-# required dependencies
+A lightweight attestation sidecar that is part of the [Tahini Project](https://space.babman.io/projects/compliance.html) led by Dr. Kinan Albab's
+[SPACE Lab](https://space.babman.io/index.html) at Boston University.
 
-You first need to set up the Intel SGX SDK on Linux. We assume you are using Ubuntu in
-this tutorial.
+## Setup
 
-## the intel sgx sdk 
-
-Some prerequisites:
+Build with Docker:
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y build-essential python3 wget
+docker build -t tahini-sidecar .
 ```
 
-Now create the installation directory:
+Run on Docker:
 
 ```bash
-sudo mkdir -p /opt/intel
+docker run --rm tahini-sidecar
 ```
 
-Download SGX SDK (replace with latest version from Intel's website). For Ubuntu 20.04/22.04:
+Expected output:
 
 ```bash
-wget https://download.01.org/intel-sgx/sgx-linux/2.21/distro/ubuntu22.04-server/sgx_linux_x64_sdk_2.21.100.2.bin
+Creating enclave...
+Enclave created successfully!
+Calling enclave function...
+Hello from Intel SGX enclave!
+Destroying enclave...
+Done!
 ```
 
-Make it executable
+## Convention
 
-```bash
-chmod +x sgx_linux_x64_sdk_*.bin
-```
+We prefix all untrusted code with `u_` and all enclave code with `e_`. Other than that,
+`sidecar.edl` is the enclave definition language file that defines the interface,
+`sidecar.lds` is the linker script for the enclave, `sidecar.config.xml` is the 
+configuration of the enclave, and `Makefile` is just your everyday Makefile.
 
-Run installer (default installs to /opt/intel/sgxsdk)
+## Execution mode
 
-```bash
-sudo ./sgx_linux_x64_sdk_*.bin
-```
-
-Finally, source the environment:
-
-```bash
-echo 'source /opt/intel/sgxsdk/environment' >> ~/.bashrc
-source ~/.bashrc
-```
-
-Helpful link: [Intel's SGX Downloads](https://www.intel.com/content/www/us/en/developer/tools/software-guard-extensions/downloads.html)
-
-## the install sgx driver
-
-
-(Important note!!! ) The SGX driver is required for hardware-based SGX. For simulation mode (development/testing), you can skip this step.
-
-```bash
-sudo apt-get install -y linux-headers-$(uname -r)
-wget https://download.01.org/intel-sgx/sgx-linux/2.21/distro/ubuntu22.04-server/sgx_linux_x64_driver_*.bin
-chmod +x sgx_linux_x64_driver_*.bin
-sudo ./sgx_linux_x64_driver_*.bin
-```
-
-## install go
-
-```bash
-sudo apt-get install -y golang-go
-```
-
-## double-check the setup
-
-intel sgx sdk:
-
-```bash
-sgx_edger8r --version
-```
-
-go installation:
-
-```bash
-go version
-```
-
-gcc installation:
-
-```bash
-gcc --version
-```
-
-# building
-
-first, generate the enclave signing key (if not already present). we will try to 
-make sure this is already present though.
-
-```bash
-openssl genrsa -out Enclave_private.pem -3 3072
-```
-
-next, build the application:
-
-```bash
-make
-```
-
-# running
-
-It's as simple as:
-
-```bash
-make run
-```
-
-Or run directly:
-
-```bash
-./sidecar
-```
+To run in simulation mode, set `SGX_MODE=SIM`. To run on actual SGX hardware, set `SGX_MODE=HW` and install the SGX driver.

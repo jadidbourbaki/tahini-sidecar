@@ -1,0 +1,8 @@
+*.o
+*.so
+app
+enclave_private.pem
+Enclave_t.*
+Enclave_u.*
+.git
+.gitignore
