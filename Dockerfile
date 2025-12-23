@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     git \
     cmake \
     perl \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Intel SGX SDK
@@ -37,7 +38,7 @@ RUN git clone https://github.com/intel/linux-sgx.git && \
 ENV SGX_SDK=/opt/intel/sgxsdk
 ENV PATH=$SGX_SDK/bin:$SGX_SDK/bin/x64:$PATH
 ENV PKG_CONFIG_PATH=$SGX_SDK/pkgconfig
-ENV LD_LIBRARY_PATH=$SGX_SDK/sdk_libs:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=$SGX_SDK/sdk_libs
 
 # Set simulation mode
 ENV SGX_MODE=SIM
