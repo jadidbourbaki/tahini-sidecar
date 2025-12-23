@@ -30,23 +30,23 @@ sgx_status_t ecall_hash(const char* binary_path) {
     // read file in chunks via OCALL and hash inside enclave
     uint8_t buffer[CHUNK_SIZE];
     size_t offset = 0;
-    size_t bytes_read_arr[1] = {0};
+    size_t bytes_read = 0;
     
     // read the file in chunks and hash inside the enclave
     do {
-        bytes_read_arr[0] = 0;
-        ocall_read_file_chunk(binary_path, offset, buffer, sizeof(buffer), bytes_read_arr);
+        bytes_read = 0;
+        ocall_read_file_chunk(binary_path, offset, buffer, sizeof(buffer), &bytes_read);
         
-        if (bytes_read_arr[0] > 0) {
-            ret = sgx_sha256_update(buffer, bytes_read_arr[0], sha_handle);
+        if (bytes_read > 0) {
+            ret = sgx_sha256_update(buffer, bytes_read, sha_handle);
             // todo: the error handling here could be improved
             if (ret != SGX_SUCCESS) {
                 sgx_sha256_close(sha_handle);
                 return ret;
             }
-            offset += bytes_read_arr[0];
+            offset += bytes_read;
         }
-    } while (bytes_read_arr[0] == sizeof(buffer)); // Continue if we read a full chunk
+    } while (bytes_read == sizeof(buffer)); // Continue if we read a full chunk
     
     // finalize the hash
     ret = sgx_sha256_get_hash(sha_handle, (sgx_sha256_hash_t*)stored_hash);
