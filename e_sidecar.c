@@ -21,7 +21,7 @@ sgx_status_t ecall_hash(const char* binary_path) {
     }
     
     // initialize the SHA-256 context
-    sgx_sha256_state_handle_t sha_handle;
+    sgx_sha_state_handle_t sha_handle;
     sgx_status_t ret = sgx_sha256_init(&sha_handle);
     if (ret != SGX_SUCCESS) {
         return ret;
