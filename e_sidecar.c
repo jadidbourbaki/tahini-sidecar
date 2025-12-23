@@ -30,23 +30,23 @@ sgx_status_t ecall_hash(const char* binary_path) {
     // read file in chunks via OCALL and hash inside enclave
     uint8_t buffer[CHUNK_SIZE];
     size_t offset = 0;
-    size_t bytes_read = 0;
+    size_t bytes_read_arr[1] = {0};
     
     // read the file in chunks and hash inside the enclave
     do {
-        bytes_read = 0;
-        ocall_read_file_chunk(binary_path, offset, buffer, sizeof(buffer), &bytes_read);
+        bytes_read_arr[0] = 0;
+        ocall_read_file_chunk(binary_path, offset, buffer, sizeof(buffer), bytes_read_arr);
         
-        if (bytes_read > 0) {
-            ret = sgx_sha256_update(buffer, bytes_read, sha_handle);
+        if (bytes_read_arr[0] > 0) {
+            ret = sgx_sha256_update(buffer, bytes_read_arr[0], sha_handle);
             // todo: the error handling here could be improved
             if (ret != SGX_SUCCESS) {
                 sgx_sha256_close(sha_handle);
                 return ret;
             }
-            offset += bytes_read;
+            offset += bytes_read_arr[0];
         }
-    } while (bytes_read == sizeof(buffer)); // Continue if we read a full chunk
+    } while (bytes_read_arr[0] == sizeof(buffer)); // Continue if we read a full chunk
     
     // finalize the hash
     ret = sgx_sha256_get_hash(sha_handle, (sgx_sha256_hash_t*)stored_hash);
@@ -62,9 +62,9 @@ sgx_status_t ecall_hash(const char* binary_path) {
 // ecall_generate_credentials: generates ECDH key pair and sends to caller
 sgx_status_t ecall_generate_credentials(
     uint8_t* secret_key_out,
-    uint64_t secret_key_len,
+    size_t secret_key_len,
     uint8_t* public_key_out,
-    uint64_t public_key_len
+    size_t public_key_len
 ) {
     if (!initialized) {
         return SGX_ERROR_UNEXPECTED;
@@ -118,9 +118,9 @@ sgx_status_t ecall_get_attestation_report(
     const sgx_target_info_t* target_info,
     sgx_report_t* report,
     uint8_t* binary_hash_out,
-    uint64_t hash_len,
+    size_t hash_len,
     uint8_t* public_key_out,
-    uint64_t pubkey_len
+    size_t pubkey_len
 ) {
     if (!initialized) {
         return SGX_ERROR_UNEXPECTED;

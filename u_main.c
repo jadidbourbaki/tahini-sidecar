@@ -14,29 +14,29 @@ void ocall_print(const char* str) {
 // ocall_read_file_chunk: reads a chunk of the binary file from disk
 void ocall_read_file_chunk(
     const char* path,
-    uint64_t offset,
+    size_t offset,
     uint8_t* buffer,
-    uint64_t chunk_size,
-    uint64_t* bytes_read
+    size_t chunk_size,
+    size_t bytes_read[1]
 ) {
     // note: this could definitely be faster by not opening and closing the file for each chunk
     // but a one-time performance gain at startup is not a big win for us, large services
     // have a long startup time anyway.
     FILE* f = fopen(path, "rb");
     if (!f) {
-        *bytes_read = 0;
+        bytes_read[0] = 0;
         return;
     }
     
     // Seek to offset
     if (fseek(f, offset, SEEK_SET) != 0) {
         fclose(f);
-        *bytes_read = 0;
+        bytes_read[0] = 0;
         return;
     }
     
     // Read chunk
-    *bytes_read = fread(buffer, 1, chunk_size, f);
+    bytes_read[0] = fread(buffer, 1, chunk_size, f);
     fclose(f);
 }
 
