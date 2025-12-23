@@ -27,8 +27,8 @@ WORKDIR /tmp
 RUN git clone https://github.com/intel/linux-sgx.git && \
     cd linux-sgx && \
     make preparation && \
-    make sdk && \
-    make sdk_install_pkg && \
+    make -j$(nproc) sdk && \
+    make -j$(nproc) sdk_install_pkg && \
     cd linux/installer/bin && \
     ./sgx_linux_x64_sdk_*.bin --prefix /opt/intel && \
     cd /tmp && \
