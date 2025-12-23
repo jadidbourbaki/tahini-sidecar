@@ -77,9 +77,10 @@ int main(int argc, char* argv[]) {
     printf("tahini sidecar: computing binary hash (inside enclave)...\n");
     
     // initialize enclave and let it hash the binary itself
-    ret = ecall_hash(eid, service_binary);
-    if (ret != SGX_SUCCESS) {
-        fprintf(stderr, "failed to initialize and hash binary. error code: 0x%x\n", ret);
+    sgx_status_t retval;
+    ret = ecall_hash(eid, &retval, service_binary);
+    if (ret != SGX_SUCCESS || retval != SGX_SUCCESS) {
+        fprintf(stderr, "failed to initialize and hash binary. error code: 0x%x\n", ret != SGX_SUCCESS ? ret : retval);
         sgx_destroy_enclave(eid);
         return 1;
     }
@@ -88,9 +89,9 @@ int main(int argc, char* argv[]) {
     
     // generate credentials
     uint8_t secret_key[KEY_SIZE], public_key[PUBKEY_SIZE];
-    ret = ecall_generate_credentials(eid, secret_key, KEY_SIZE, public_key, PUBKEY_SIZE);
-    if (ret != SGX_SUCCESS) {
-        fprintf(stderr, "failed to generate credentials. error code: 0x%x\n", ret);
+    ret = ecall_generate_credentials(eid, &retval, secret_key, KEY_SIZE, public_key, PUBKEY_SIZE);
+    if (ret != SGX_SUCCESS || retval != SGX_SUCCESS) {
+        fprintf(stderr, "failed to generate credentials. error code: 0x%x\n", ret != SGX_SUCCESS ? ret : retval);
         sgx_destroy_enclave(eid);
         return 1;
     }
