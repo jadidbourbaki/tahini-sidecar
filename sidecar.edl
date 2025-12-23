@@ -1,6 +1,5 @@
 enclave {
     from "sgx_tstdc.edl" import *;
-    from "sgx_tcrypto.edl" import *;
 
     // note: i am trying to keep the interface as clean and minimal as 
     // possible here as we want the enclave to be easy to reason about.
