@@ -43,13 +43,11 @@ ENV LD_LIBRARY_PATH=$SGX_SDK/sdk_libs
 # Set simulation mode
 ENV SGX_MODE=SIM
 
-WORKDIR /app
+# Source SGX environment in bashrc so it's available in interactive shells
+RUN echo 'source $SGX_SDK/environment' >> /root/.bashrc
 
-# Copy source files
-COPY Makefile sidecar.edl e_sidecar.c sidecar.config.xml sidecar.lds u_main.c ./
+WORKDIR /workspace
 
-# Build the application
-RUN . $SGX_SDK/environment && make
-
-# Default command - run the app
-CMD ["./sidecar"]
+# Default command - interactive shell for development
+# Mount your source directory: docker run -it -v $(pwd):/workspace tahini-sidecar
+CMD ["/bin/bash"]

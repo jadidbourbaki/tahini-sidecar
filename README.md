@@ -13,21 +13,17 @@ Build with Docker:
 docker build -t tahini-sidecar .
 ```
 
-Run on Docker:
+Run on Docker (with volume mount for development):
 
 ```bash
-docker run --rm tahini-sidecar
+docker run -it --rm -v $(pwd):/workspace tahini-sidecar
 ```
 
-Expected output:
+Inside the container, build and run:
 
 ```bash
-Creating enclave...
-Enclave created successfully!
-Calling enclave function...
-Hello from Intel SGX enclave!
-Destroying enclave...
-Done!
+make
+./sidecar
 ```
 
 ## Convention
