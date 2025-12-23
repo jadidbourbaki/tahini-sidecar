@@ -22,17 +22,12 @@ RUN apt-get update && apt-get install -y \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Intel SGX SDK
+# Install Intel SGX SDK using prebuilt installer (much faster than building from source)
 WORKDIR /tmp
-RUN git clone https://github.com/intel/linux-sgx.git && \
-    cd linux-sgx && \
-    make preparation && \
-    make -j$(nproc) sdk && \
-    make -j$(nproc) sdk_install_pkg && \
-    cd linux/installer/bin && \
-    ./sgx_linux_x64_sdk_*.bin --prefix /opt/intel && \
-    cd /tmp && \
-    rm -rf linux-sgx
+RUN wget https://download.01.org/intel-sgx/sgx-linux/2.27/distro/ubuntu22.04-server/sgx_linux_x64_sdk_2.27.100.1.bin && \
+    chmod +x sgx_linux_x64_sdk_2.27.100.1.bin && \
+    ./sgx_linux_x64_sdk_2.27.100.1.bin --prefix /opt/intel && \
+    rm -f sgx_linux_x64_sdk_2.27.100.1.bin
 
 # Set up SGX environment
 ENV SGX_SDK=/opt/intel/sgxsdk
