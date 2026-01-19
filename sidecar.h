@@ -1,9 +1,43 @@
-#ifndef SIDECAR_H
-#define SIDECAR_H
+#ifndef TAHINI_SIDECAR_H
+#define TAHINI_SIDECAR_H
 
-#define HASH_SIZE 32  // SHA-256 hash size
-#define KEY_SIZE 32   // Private key size in bytes
-#define PUBKEY_SIZE 64  // Full public key size in bytes (NIST P-256: 32 bytes x + 32 bytes y)
-#define ENCLAVE_FILE "enclave.signed.so"
+// TAHINI_HASH_SIZE is the SHA-256 hash size
+#define TAHINI_HASH_SIZE 32  
+// TAHINI_KEY_SIZE is the private key size in bytes
+#define TAHINI_KEY_SIZE 32  
+// TAHINI_PUBKEY_SIZE is the full public key size in bytes for NIST P-256 (32 bytes x + 32 bytes y)
+#define TAHINI_PUBKEY_SIZE 64 
+// TAHINI_ENCLAVE_FILE is the path to the enclave file
+#define TAHINI_ENCLAVE_FILE "enclave.signed.so"
 
-#endif // SIDECAR_H
+// CHUNK_SIZE is the size of the chunk to read the binary in
+#define TAHINI_CHUNK_SIZE 4096
+
+// Syscall numbers for x86-64 Linux
+#define TAHINI_SYSCALL_OPEN 2
+#define TAHINI_SYSCALL_LSEEK 8
+#define TAHINI_SYSCALL_READ 0
+#define TAHINI_SYSCALL_CLOSE 3
+#define TAHINI_SYSCALL_EXECVE 59
+#define TAHINI_SYSCALL_MMAP 9
+#define TAHINI_SYSCALL_WRITE 1
+#define TAHINI_SYSCALL_SET 12
+
+// mmap flags
+#define TAHINI_MMAP_PROT_READ 1
+#define TAHINI_MMAP_PROT_WRITE 2
+#define TAHINI_MMAP_MAP_PRIVATE 2
+#define TAHINI_MMAP_MAP_ANONYMOUS 32
+
+// File open flags
+#define TAHINI_FILE_OPEN_FLAG_RDONLY 0
+#define TAHINI_FILE_OPEN_FLAG_SEEK_SET 0
+
+// mmap flags and constants
+#define TAHINI_MMAP_PROT_READ 1
+#define TAHINI_MMAP_PROT_WRITE 2
+#define TAHINI_MMAP_MAP_PRIVATE 2
+#define TAHINI_MMAP_MAP_ANONYMOUS 32
+#define TAHINI_MMAP_MAP_FAILED ((void*)-1)
+
+#endif // TAHINI_SIDECAR_H

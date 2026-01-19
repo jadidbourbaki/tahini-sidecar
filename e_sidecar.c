@@ -1,21 +1,57 @@
 #include "sidecar_t.h"
 #include <sgx_tcrypto.h>
 #include <sgx_trts.h>
+#include <sgx_report.h>
+#include <sgx_utils.h> 
 #include <string.h>
 
 #include "sidecar.h"
 
-// the state we store in the enclave
-static uint8_t stored_hash[HASH_SIZE] = {0};
-static uint8_t public_key_commitment[HASH_SIZE] = {0};  // Hash of full public key for attestation report
-static sgx_ec256_public_t full_public_key = {0};  // Full public key (64 bytes: x + y)
+// stored_hash is the hash of the binary
+static uint8_t stored_hash[TAHINI_HASH_SIZE] = {0};
+// public_key_commitment is the hash of the full public key for attestation report
+static uint8_t public_key_commitment[TAHINI_HASH_SIZE] = {0};
+// full_public_key is the full public key (64 bytes: x + y)
+static sgx_ec256_public_t full_public_key = {0};
+// private_key is the private key
 static sgx_ec256_private_t private_key = {0};
+// initialized is a flag to indicate if the enclave is initialized
 static int initialized = 0;
 
-#define CHUNK_SIZE 4096
+// e_malloc_cpy allocates memory using mmap syscall and copies data from enclave to untrusted memory
+static void* e_malloc_cpy(const void* src, size_t size) {
+    if (!src || size == 0) {
+        return NULL;
+    }
+    
+    long mmap_result;
+    sgx_status_t ocall_ret = ocall_syscall(&mmap_result, TAHINI_SYSCALL_MMAP,
+        0, // an address of NULL means we let the kernel choose
+        (long)size,  // the length of the memory to allocate
+        TAHINI_MMAP_PROT_READ | TAHINI_MMAP_PROT_WRITE,  // the protection flags
+        TAHINI_MMAP_MAP_PRIVATE | TAHINI_MMAP_MAP_ANONYMOUS,  // the mapping flags
+        -1,  // the file descriptor, which we leave as -1 for anonymous mapping
+        0);  // the offset, which we leave as 0 for anonymous mapping
+    
+    if (ocall_ret != SGX_SUCCESS || mmap_result == (long)TAHINI_MMAP_MAP_FAILED) {
+        return NULL;
+    }
+    
+    void* dest = (void*)mmap_result;
+    
+    // we need to copy the data byte by byte here because of the interface of ocall_copy_byte, 
+    // which we have designed to minimize the dependencies on the untrusted code.
+    const uint8_t* s = (const uint8_t*)src;
+    for (size_t i = 0; i < size; i++) {
+        ocall_copy_byte((char*)dest + i, s[i]);
+    }
+    
+    return dest;
+}
 
-// ecall_hash: hashes the binary inside the enclave
-sgx_status_t ecall_hash(const char* binary_path) {
+// ecall_hash_binary hashes the binary inside the enclave
+// binary_path is the path to the binary to hash
+sgx_status_t ecall_hash_binary(const char* binary_path) {
     if (!binary_path) {
         return SGX_ERROR_INVALID_PARAMETER;
     }
@@ -27,26 +63,55 @@ sgx_status_t ecall_hash(const char* binary_path) {
         return ret;
     }
     
-    // read file in chunks via OCALL and hash inside enclave
-    uint8_t buffer[CHUNK_SIZE];
-    size_t offset = 0;
+    // read the file in chunks via syscall ocall and hash inside the enclave
+    uint8_t buffer[TAHINI_CHUNK_SIZE];
+    size_t file_offset = 0;
     size_t bytes_read = 0;
     
-    // read the file in chunks and hash inside the enclave
     do {
         bytes_read = 0;
-        ocall_read_file_chunk(binary_path, offset, buffer, sizeof(buffer), &bytes_read);
         
-        if (bytes_read > 0) {
+        // open the file via syscall ocall
+        long fd_long;
+        sgx_status_t ocall_ret = ocall_syscall(&fd_long, TAHINI_SYSCALL_OPEN, (long)binary_path, TAHINI_FILE_OPEN_FLAG_RDONLY, 0, 0, 0, 0);
+        if (ocall_ret != SGX_SUCCESS) {
+            sgx_sha256_close(sha_handle);
+            return ocall_ret;
+        }
+
+        int fd = (int)fd_long;
+        if (fd < 0) {
+            sgx_sha256_close(sha_handle);
+            return SGX_ERROR_UNEXPECTED;
+        }
+        
+        // seek to the offset via syscall ocall
+        long lseek_result;
+        ocall_ret = ocall_syscall(&lseek_result, TAHINI_SYSCALL_LSEEK, fd, file_offset, TAHINI_FILE_OPEN_FLAG_SEEK_SET, 0, 0, 0);
+        if (ocall_ret != SGX_SUCCESS || lseek_result < 0) {
+            long close_result;
+            ocall_syscall(&close_result, TAHINI_SYSCALL_CLOSE, fd, 0, 0, 0, 0, 0);
+            sgx_sha256_close(sha_handle);
+            return SGX_ERROR_UNEXPECTED;
+        }
+        
+        // read the chunk via syscall ocall
+        long read_result;
+        ocall_ret = ocall_syscall(&read_result, TAHINI_SYSCALL_READ, fd, (long)buffer, sizeof(buffer), 0, 0, 0);
+        long close_result;
+        ocall_syscall(&close_result, TAHINI_SYSCALL_CLOSE, fd, 0, 0, 0, 0, 0);
+        
+        if (read_result > 0) {
+            bytes_read = (size_t)read_result;
             ret = sgx_sha256_update(buffer, bytes_read, sha_handle);
-            // todo: the error handling here could be improved
+            // TODO(jadidbourbaki): the error handling here could be improved
             if (ret != SGX_SUCCESS) {
                 sgx_sha256_close(sha_handle);
                 return ret;
             }
-            offset += bytes_read;
+            file_offset += bytes_read;
         }
-    } while (bytes_read == sizeof(buffer)); // Continue if we read a full chunk
+    } while (bytes_read == TAHINI_CHUNK_SIZE); // continue if we read a full chunk
     
     // finalize the hash
     ret = sgx_sha256_get_hash(sha_handle, (sgx_sha256_hash_t*)stored_hash);
@@ -59,7 +124,11 @@ sgx_status_t ecall_hash(const char* binary_path) {
     return ret;
 }
 
-// ecall_generate_credentials: generates ECDH key pair and sends to caller
+// ecall_generate_credentials generates ECDH key pair and sends to caller
+// secret_key_out is the output secret key (32 bytes)
+// secret_key_len is the length of the secret key (32 bytes)
+// public_key_out is the output public key (64 bytes: x + y)
+// public_key_len is the length of the public key (64 bytes)
 sgx_status_t ecall_generate_credentials(
     uint8_t* secret_key_out,
     size_t secret_key_len,
@@ -70,7 +139,7 @@ sgx_status_t ecall_generate_credentials(
         return SGX_ERROR_UNEXPECTED;
     }
     
-    if (secret_key_len != KEY_SIZE || public_key_len != PUBKEY_SIZE) {
+    if (secret_key_len != TAHINI_KEY_SIZE || public_key_len != TAHINI_PUBKEY_SIZE) {
         return SGX_ERROR_INVALID_PARAMETER;
     }
     
@@ -103,17 +172,23 @@ sgx_status_t ecall_generate_credentials(
     }
     
     // Serialize private key (32 bytes) - copy directly
-    memcpy(secret_key_out, private_key.r, KEY_SIZE);
+    memcpy(secret_key_out, private_key.r, TAHINI_KEY_SIZE);
     
     // Return full public key (64 bytes: x + y coordinates)
     // Serialize: first 32 bytes are x-coordinate, next 32 bytes are y-coordinate
-    memcpy(public_key_out, full_public_key.gx, KEY_SIZE);
-    memcpy(public_key_out + KEY_SIZE, full_public_key.gy, KEY_SIZE);
+    memcpy(public_key_out, full_public_key.gx, TAHINI_KEY_SIZE);
+    memcpy(public_key_out + TAHINI_KEY_SIZE, full_public_key.gy, TAHINI_KEY_SIZE);
     
     return SGX_SUCCESS;
 }
 
-// ecall_get_attestation_report: get attestation report with hash + public key for remote attestation
+// ecall_get_attestation_report gets attestation report with hash + public key for remote attestation
+// target_info is the target information
+// report is the output report
+// binary_hash_out is the output binary hash (32 bytes)
+// hash_len is the length of the binary hash (32 bytes)
+// public_key_out is the output public key (64 bytes: x + y)
+// pubkey_len is the length of the public key (64 bytes)
 sgx_status_t ecall_get_attestation_report(
     const sgx_target_info_t* target_info,
     sgx_report_t* report,
@@ -126,7 +201,7 @@ sgx_status_t ecall_get_attestation_report(
         return SGX_ERROR_UNEXPECTED;
     }
     
-    if (hash_len != HASH_SIZE || pubkey_len != PUBKEY_SIZE) {
+    if (hash_len != TAHINI_HASH_SIZE || pubkey_len != TAHINI_PUBKEY_SIZE) {
         return SGX_ERROR_INVALID_PARAMETER;
     }
     
@@ -138,8 +213,8 @@ sgx_status_t ecall_get_attestation_report(
     // leaving only 32 bytes remaining. Using a hash commitment cryptographically binds the
     // full public key in the attestation report. The full 64-byte public key is returned separately.
     sgx_report_data_t report_data = {0};
-    memcpy(report_data.d, stored_hash, HASH_SIZE);
-    memcpy(report_data.d + HASH_SIZE, public_key_commitment, HASH_SIZE);
+    memcpy(report_data.d, stored_hash, TAHINI_HASH_SIZE);
+    memcpy(report_data.d + TAHINI_HASH_SIZE, public_key_commitment, TAHINI_HASH_SIZE);
     
     // Generate attestation report
     sgx_status_t ret = sgx_create_report(target_info, &report_data, report);
@@ -147,10 +222,180 @@ sgx_status_t ecall_get_attestation_report(
         return ret;
     }
     
-    // Return hash and full public key (64 bytes: x + y)
-    memcpy(binary_hash_out, stored_hash, HASH_SIZE);
-    memcpy(public_key_out, full_public_key.gx, KEY_SIZE);
-    memcpy(public_key_out + KEY_SIZE, full_public_key.gy, KEY_SIZE);
+    // Copy hash and public key to output parameters
+    memcpy(binary_hash_out, stored_hash, TAHINI_HASH_SIZE);
+    memcpy(public_key_out, full_public_key.gx, TAHINI_KEY_SIZE);
+    memcpy(public_key_out + TAHINI_KEY_SIZE, full_public_key.gy, TAHINI_KEY_SIZE);
     
     return SGX_SUCCESS;
+}
+
+// bin_to_hex converts a binary string to a hex string
+// bin is the binary string to convert
+// len is the length of the binary string
+// hex is the output hex string
+static void bin_to_hex(const uint8_t* bin, size_t len, char* hex) {
+    const char hex_chars[] = "0123456789abcdef";
+    for (size_t i = 0; i < len; i++) {
+        hex[i*2] = hex_chars[(bin[i] >> 4) & 0x0F];
+        hex[i*2 + 1] = hex_chars[bin[i] & 0x0F];
+    }
+    hex[len*2] = '\0';
+}
+
+// ecall_launch_service handles all logic including argument parsing, hashing, credential generation, and execve
+// argc is the argument count (including program name)
+// argv is the argument array (argv[1] is the service binary path, argv[2..] are service args)
+sgx_status_t ecall_launch_service(int argc, size_t argv_buffer_size, const char* argv_buffer) {
+    if (argc < 2 || !argv_buffer) {
+        return SGX_ERROR_INVALID_PARAMETER;
+    }
+    
+    // Parse argv_buffer to find argv[1] (service binary path)
+    // argv_buffer format: argv[0]\0argv[1]\0...argv[argc-1]\0
+    const char* binary_path = NULL;
+    size_t offset = 0;
+    int current_arg = 0;
+    
+    // Skip argv[0] which is just the tahini sidecar binary name
+    while (current_arg < 1 && offset < argv_buffer_size && argv_buffer[offset] != '\0') {
+        offset++;
+    }
+    if (offset < argv_buffer_size && argv_buffer[offset] == '\0') {
+        offset++; // skip the null terminator
+        current_arg++;
+    }
+    
+    // now offset points to argv[1] which is the service binary path
+    if (current_arg == 1 && offset < argv_buffer_size) {
+        binary_path = argv_buffer + offset;
+    }
+    
+    if (!binary_path) {
+        return SGX_ERROR_INVALID_PARAMETER;
+    }
+    
+    // hash the binary
+    sgx_status_t ret = ecall_hash_binary(binary_path);
+    if (ret != SGX_SUCCESS) {
+        return ret;
+    }
+    
+    // generate credentials
+    uint8_t secret_key[TAHINI_KEY_SIZE];
+    uint8_t public_key[TAHINI_PUBKEY_SIZE];
+    ret = ecall_generate_credentials(secret_key, TAHINI_KEY_SIZE, public_key, TAHINI_PUBKEY_SIZE);
+    if (ret != SGX_SUCCESS) {
+        return ret;
+    }
+    
+    // convert the secret key to hex
+    char secret_hex[TAHINI_KEY_SIZE * 2 + 1];
+    bin_to_hex(secret_key, TAHINI_KEY_SIZE, secret_hex);
+    
+    // find the start of argv[2] for service arguments
+    // we already parsed to argv[1], so continue from there
+    size_t argv2_offset = offset; // continue from where we found argv[1]
+
+    while (argv2_offset < argv_buffer_size && argv_buffer[argv2_offset] != '\0') {
+        argv2_offset++;
+    }
+    if (argv2_offset < argv_buffer_size && argv_buffer[argv2_offset] == '\0') {
+        argv2_offset++; // skip the null terminator which now points to argv[2]
+    }
+    
+    size_t arg_count = 0;
+    if (argc > 2) {
+        arg_count = argc - 2; // the number of service arguments is argc - 2 (argv[2..argc-1])
+    }
+    
+    // construct the argv array in untrusted memory
+    // the total number of arguments is 3 + arg_count (binary_path, "--tahini-secret", secret_hex, + parsed args)
+    #define MAX_ARGS 256
+    if (3 + arg_count > MAX_ARGS) {
+        return SGX_ERROR_INVALID_PARAMETER; // the number of arguments is too large
+    }
+    
+    // calculate the length of the binary path including the null terminator
+    size_t binary_path_len = 0;
+    while (binary_path[binary_path_len] != '\0') {
+        binary_path_len++;
+    }
+    binary_path_len++; // add the null terminator
+    
+    // allocate and copy the binary path using mmap syscall + minimal copy ocall
+    void* binary_path_ptr = e_malloc_cpy(binary_path, binary_path_len);
+    if (!binary_path_ptr) {
+        return SGX_ERROR_OUT_OF_MEMORY;
+    }
+    
+    // allocate and copy the secret key to hex using mmap syscall + minimal copy ocall
+    void* secret_hex_ptr = e_malloc_cpy(secret_hex, TAHINI_KEY_SIZE * 2 + 1);
+    if (!secret_hex_ptr) {
+        return SGX_ERROR_OUT_OF_MEMORY;
+    }
+    
+    // allocate and copy the "--tahini-secret" flag using mmap syscall + minimal copy ocall
+    const char* flag_str = "--tahini-secret";
+    // "--tahini-secret" is 15 characters, need 16 bytes including null terminator
+    void* tahini_secret_flag = e_malloc_cpy(flag_str, 16);
+    if (!tahini_secret_flag) {
+        return SGX_ERROR_OUT_OF_MEMORY;
+    }
+    
+    // parse the arguments from argv_buffer and copy each to untrusted memory
+    // the service arguments are starting at argv2_offset
+    void* arg_ptrs[MAX_ARGS];
+    size_t current_offset = argv2_offset;
+    for (size_t i = 0; i < arg_count; i++) {
+        if (current_offset >= argv_buffer_size) {
+            return SGX_ERROR_INVALID_PARAMETER;
+        }
+
+        // find the length of this argument
+        size_t arg_start = current_offset;
+        while (current_offset < argv_buffer_size && argv_buffer[current_offset] != '\0') {
+            current_offset++;
+        }
+        size_t arg_len = current_offset - arg_start;
+        if (current_offset < argv_buffer_size) {
+            current_offset++; // skip the null terminator
+        }
+        
+        // allocate and copy the argument string using mmap syscall + minimal copy ocall
+        arg_ptrs[i] = e_malloc_cpy(argv_buffer + arg_start, arg_len + 1);
+        if (!arg_ptrs[i]) {
+            return SGX_ERROR_OUT_OF_MEMORY;
+        }
+    }
+    
+    // build the argv array structure in enclave memory first
+    // NOTE(jadidbourbaki): all of these pointers are now in untrusted memory
+    void* argv_array_local[MAX_ARGS];
+    argv_array_local[0] = binary_path_ptr;
+    argv_array_local[1] = tahini_secret_flag;
+    argv_array_local[2] = secret_hex_ptr;
+    for (size_t i = 0; i < arg_count; i++) {
+        argv_array_local[3 + i] = arg_ptrs[i];
+    }
+    argv_array_local[3 + arg_count] = NULL;
+    
+    // allocate and copy the argv array using mmap syscall + minimal copy ocall
+    size_t argv_array_size = (3 + arg_count + 1) * sizeof(void*);
+    void* argv_array = e_malloc_cpy(argv_array_local, argv_array_size);
+    if (!argv_array) {
+        return SGX_ERROR_OUT_OF_MEMORY;
+    }
+    
+    // call execve via syscall ocall
+    // NOTE(jadidbourbaki): execve on success never returns (replaces process), so if we reach the check below, it failed
+    // use the binary path pointer (in untrusted memory) instead of the binary path (in enclave memory)
+    long execve_result = 0;
+    sgx_status_t ocall_ret = ocall_syscall(&execve_result, TAHINI_SYSCALL_EXECVE, (long)binary_path_ptr, (long)argv_array, (long)NULL, 0, 0, 0);
+    if (ocall_ret != SGX_SUCCESS) {
+        return ocall_ret;
+    }
+    
+    // NOTE(jadidbourbaki): if we reach here, execve failed
+    return SGX_ERROR_UNEXPECTED;
 }

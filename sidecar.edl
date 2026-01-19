@@ -7,12 +7,10 @@ enclave {
     // note: i am trying to keep the interface as clean and minimal as 
     // possible here as we want the enclave to be easy to reason about.
     trusted {
-        // hash: reads and hashes the binary inside enclave, then stores it
-        public sgx_status_t ecall_hash(
+        public sgx_status_t ecall_hash_binary(
             [in, string] const char* binary_path
         );
         
-        // generate_credentials for launching the service
         public sgx_status_t ecall_generate_credentials(
             [out, size=secret_key_len] uint8_t* secret_key,
             size_t secret_key_len,
@@ -20,7 +18,6 @@ enclave {
             size_t public_key_len
         );
         
-        // get_attestation_report: get report with hash + public key for remote attestation
         public sgx_status_t ecall_get_attestation_report(
             [in] const sgx_target_info_t* target_info,
             [out] sgx_report_t* report,
@@ -29,19 +26,28 @@ enclave {
             [out, size=pubkey_len] uint8_t* public_key,
             size_t pubkey_len
         );
+        
+        public sgx_status_t ecall_launch_service(
+            int argc,
+            size_t argv_buffer_size,
+            [in, size=argv_buffer_size] const char* argv_buffer
+        );
     };
 
     untrusted {
-        // read_file_chunk: read a chunk of the binary file from disk
-        void ocall_read_file_chunk(
-            [in, string] const char* path,
-            size_t offset,
-            [out, size=chunk_size] uint8_t* buffer,
-            size_t chunk_size,
-            [out, count=1] size_t* bytes_read
+        long ocall_syscall(
+            long syscall_number,
+            long arg1,
+            long arg2,
+            long arg3,
+            long arg4,
+            long arg5,
+            long arg6
         );
         
-        // print: just your everyday stdout
-        void ocall_print([in, string] const char* str);
+        void ocall_copy_byte(
+            [user_check] void* dest,
+            uint8_t byte
+        );
     };
 };

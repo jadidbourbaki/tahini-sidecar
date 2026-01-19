@@ -45,15 +45,12 @@ TRUSTED_LINK_FLAGS := $(SGX_COMMON_CFLAGS) -Wl,--no-undefined -nostdlib -nodefau
 TRUSTED_BINARY_NAME := enclave.so
 SIGNED_TRUSTED_BINARY_NAME := enclave.signed.so
 
-.PHONY: all run clean
-
 all: $(UNTRUSTED_BINARY_NAME) $(SIGNED_TRUSTED_BINARY_NAME)
 
-run: all
-	@echo "Running in $(SGX_MODE) mode..."
-	./$(UNTRUSTED_BINARY_NAME)
-
-	-Wl,--version-script=sidecar.lds
+.PHONY: run
+run: all ## run the sidecar with the given arguments
+	@echo "Running in $(SGX_MODE) mode... with arguments: $(ARGS)"
+	./$(UNTRUSTED_BINARY_NAME) $(ARGS)
 
 ######## Untrusted (App) Objects ########
 sidecar_u.c: $(SGX_EDGER8R) sidecar.edl
@@ -97,5 +94,49 @@ $(SIGNED_TRUSTED_BINARY_NAME): $(TRUSTED_BINARY_NAME)
 	@$(SGX_ENCLAVE_SIGNER) sign -key sidecar_private.pem -enclave $(TRUSTED_BINARY_NAME) -out $@ -config sidecar.config.xml
 	@echo "SIGN =>  $@"
 
-clean:
+.PHONY: clean
+clean: ## clean the build artifacts
 	@rm -f $(UNTRUSTED_BINARY_NAME) $(TRUSTED_BINARY_NAME) $(SIGNED_TRUSTED_BINARY_NAME) *.o sidecar_t.* sidecar_u.* sidecar_private.pem
+
+.PHONY: sync
+sync: ## sync local changes to the Linode instance, needs an IP address as an argument
+	infra/sync.sh $(IP_ADDRESS)
+
+.PHONY: docker-build
+docker-build: ## build the docker image
+	docker build -t tahini-sidecar .
+
+.PHONY: docker-run
+docker-run: ## run the docker container
+	docker run -it --rm -v $$(pwd):/workspace tahini-sidecar
+
+.PHONY: docker-stop
+docker-stop: ## stop the docker container
+	docker stop tahini-sidecar || true
+
+.PHONY: docker-rm
+docker-rm: ## remove the docker container
+	docker rm tahini-sidecar || true
+
+.PHONY: docker-rm-force
+docker-rm-force: ## force remove the docker container
+	docker rm -f tahini-sidecar || true
+
+.PHONY: deps
+deps: ## install Docker on the Linode server
+	sudo apt-get update && \
+	sudo apt-get install -y docker.io && \
+	echo "Docker installed successfully";
+
+.PHONY: examples
+examples: ## build the examples
+	make -C examples clean
+	make -C examples
+
+.PHONY: run-example
+run-example: all examples ## run the example with the given arguments
+	./$(UNTRUSTED_BINARY_NAME) examples/hello
+
+.PHONY: help
+help: ## show the help message
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'

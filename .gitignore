@@ -18,3 +18,6 @@ Enclave_u.h
 
 # OS
 .DS_Store
+
+# Examples
+examples/hello
