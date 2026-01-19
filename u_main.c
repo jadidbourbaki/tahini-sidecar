@@ -10,15 +10,7 @@
 
 // ocall_syscall is a wrapper to the Linux syscall interface
 long ocall_syscall(long syscall_number, long arg1, long arg2, long arg3, long arg4, long arg5, long arg6) {
-    long result = syscall(syscall_number, arg1, arg2, arg3, arg4, arg5, arg6);
-    
-    // Debug output for execve failures
-    if (syscall_number == 59 && result < 0) { // 59 is SYS_execve
-        fprintf(stderr, "execve failed: path='%s', errno=%d (%s)\n", 
-                (const char*)arg1, errno, strerror(errno));
-    }
-    
-    return result;
+    return syscall(syscall_number, arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
 // ocall_copy_byte is a minimal single-byte copy to untrusted memory
