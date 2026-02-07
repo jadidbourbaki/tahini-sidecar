@@ -62,7 +62,19 @@ To sync the repo to a remote x86_64 host (e.g. a Linode instance) for building o
 bazel run //:sync -- <ip_address>
 ```
 
-This rsyncs the repo to `/root/tahini-sidecar` on the remote. Run from the repo root so the script can find the git root.
+This rsyncs the repo to `/root/tahini-sidecar` on the remote. Run the sync from your local repo root so the script can find the git root.
+
+**On the remote host**, install Bazel with `./infra/install.sh`, then run Bazel from the synced directory. Otherwise Bazel will report “not invoked from within a workspace”:
+
+```bash
+ssh root@<ip_address>
+cd /root/tahini-sidecar
+./infra/install.sh
+bazel run //:docker_build
+# or: bazel build //:sidecar_bin //:enclave_signed //examples:hello
+```
+
+`infra/install.sh` installs the official Bazel binary (version from `.bazelversion`) to `/usr/local/bin/bazel` on the remote (uses `sudo` if needed).
 
 ## Example: changing the service changes the secret
 
