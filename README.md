@@ -74,7 +74,7 @@ bazel run //:docker_build
 # or: bazel build //:sidecar_bin //:enclave_signed //examples:hello
 ```
 
-`infra/install.sh` installs Bazelisk to `/usr/local/bin/bazel` (uses `sudo` if needed). Sync verifies `MODULE.bazel` exists locally and on the remote so the workspace is valid.
+`infra/install.sh` installs Docker (`apt install docker.io`) and Bazelisk to `/usr/local/bin/bazel` (uses `sudo`). Sync verifies `MODULE.bazel` exists locally and on the remote so the workspace is valid.
 
 ## Example: changing the service changes the secret
 

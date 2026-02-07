@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-# Install Bazelisk on this host (Bazel version launcher; uses .bazelversion in the repo).
+# Install Docker and Bazelisk on this host.
 # Run from the repo root after sync, or from anywhere with the repo available.
 # Usage: ./infra/install.sh   (or from repo root: infra/install.sh)
 set -e
+
+echo "Installing Docker..."
+sudo apt-get update
+sudo apt-get install -y docker.io
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
@@ -26,4 +30,4 @@ else
 fi
 
 "$DEST" version
-echo "Done. Bazelisk is at $DEST (run Bazel from the repo root so it finds MODULE.bazel)"
+echo "Done. Docker and Bazelisk are installed. Bazel is at $DEST (run from the repo root so it finds MODULE.bazel)."
