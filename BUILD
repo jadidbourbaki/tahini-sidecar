@@ -129,6 +129,13 @@ alias(
     visibility = ["//visibility:public"],
 )
 
+# Sync repo to a remote host (e.g. Linode): bazel run //:sync -- <ip_address>
+sh_binary(
+    name = "sync",
+    srcs = ["infra/sync.sh"],
+    visibility = ["//visibility:public"],
+)
+
 # Docker (x86_64 Linux)
 sh_binary(
     name = "docker_build",

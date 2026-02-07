@@ -54,6 +54,16 @@ To run the sidecar with another binary, pass its path as the first argument:
 ./bazel-bin/sidecar /path/to/your/service/binary
 ```
 
+## Sync to a remote host
+
+To sync the repo to a remote x86_64 host (e.g. a Linode instance) for building or running there:
+
+```bash
+bazel run //:sync -- <ip_address>
+```
+
+This rsyncs the repo to `/root/tahini-sidecar` on the remote. Run from the repo root so the script can find the git root.
+
 ## Example: changing the service changes the secret
 
 The sidecar hashes the service binary and binds it to the attestation. If you change the example and rebuild, the secret and reported hash change. Try editing `examples/hello.c` (e.g. change the printed string), then:
