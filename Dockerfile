@@ -16,8 +16,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-ARG BAZEL_VERSION=8.5.1
-RUN wget -qO /usr/local/bin/bazel "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-x86_64" \
+# Install Bazel via Bazelisk (uses .bazelversion or latest)
+RUN wget -qO /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 \
     && chmod +x /usr/local/bin/bazel
 
 # Install Intel SGX SDK using prebuilt installer (much faster than building from source)
