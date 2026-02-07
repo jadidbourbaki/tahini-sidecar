@@ -8,7 +8,8 @@ enclave {
     // possible here as we want the enclave to be easy to reason about.
     trusted {
         public sgx_status_t ecall_hash_binary(
-            [in, string] const char* binary_path
+            [in, string] const char* binary_path,
+            [out] int* binary_fd
         );
         
         public sgx_status_t ecall_generate_credentials(
