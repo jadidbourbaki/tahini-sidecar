@@ -3,6 +3,10 @@
 *.so
 app
 enclave_private.pem
+sidecar_private.pem
+
+# Bazel
+bazel-*
 
 # Generated files
 Enclave_t.c

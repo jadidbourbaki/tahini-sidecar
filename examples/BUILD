@@ -1,0 +1,8 @@
+# Example service binary (run with the sidecar)
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+cc_binary(
+    name = "hello",
+    srcs = ["hello.c"],
+    visibility = ["//visibility:public"],
+)

@@ -5,13 +5,20 @@ FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install build dependencies
+# Install build dependencies and Bazel
 RUN apt-get update && apt-get install -y \
     build-essential \
     wget \
     libssl-dev \
     unzip \
+    gnupg \
+    apt-transport-https \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Bazel via Bazelisk (uses .bazelversion or latest)
+RUN wget -qO /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 \
+    && chmod +x /usr/local/bin/bazel
 
 # Install Intel SGX SDK using prebuilt installer (much faster than building from source)
 WORKDIR /tmp

@@ -1,0 +1,12 @@
+# Tahini Sidecar - Bazel config
+# SGX SDK path; set in env or when running in Docker (e.g. SGX_SDK=/opt/intel/sgxsdk).
+build --action_env=SGX_SDK
+build --action_env=SGX_MODE
+test --action_env=SGX_SDK
+test --action_env=SGX_MODE
+
+# Prefer reproducible builds
+build --incompatible_strict_action_env
+
+# Default SGX mode (SIM) if not set
+# build --action_env=SGX_MODE=SIM
