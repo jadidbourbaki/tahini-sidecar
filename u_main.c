@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <sgx_urts.h>
 #include "sidecar.h"
+#include "u_util.h"
 
 // ocall_syscall is a wrapper to the Linux syscall interface
 long ocall_syscall(long syscall_number, long arg1, long arg2, long arg3, long arg4, long arg5, long arg6) {
@@ -19,6 +20,11 @@ void ocall_copy_byte(void* dest, uint8_t byte) {
 }
 
 int main(int argc, char* argv[]) {
+    if (!validate_user()) {
+        fprintf(stderr, "error in sidecar: permission denied (must be in user group %s)\n", TAHINI_SIDECAR_OWNERS_GROUP);
+        return EXIT_FAILURE;
+    }
+
     sgx_enclave_id_t eid = 0;
     sgx_status_t ret = sgx_create_enclave(
         TAHINI_ENCLAVE_FILE,

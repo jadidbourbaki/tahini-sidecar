@@ -30,6 +30,8 @@ genrule(
         ":edl_gen",
         "sidecar.h",
         "u_main.c",
+        "u_util.c",
+        "u_util.h",
     ],
     outs = ["sidecar"],
     cmd = """
@@ -43,7 +45,8 @@ genrule(
         CC="$${CC:-gcc}"
         $$CC -m64 -fPIC -Wno-attributes -I"$$SDK/include" -I"$$ROOT" -I"$$EDL_DIR" -c "$$EDL_DIR/sidecar_u.c" -o "$(@D)/sidecar_u.o"
         $$CC -m64 -fPIC -Wno-attributes -I"$$SDK/include" -I"$$ROOT" -I"$$EDL_DIR" -c "$(location u_main.c)" -o "$(@D)/u_main.o"
-        $$CC -m64 -o "$@" "$(@D)/sidecar_u.o" "$(@D)/u_main.o" -L"$$SDK/lib64" -l$$URTS -l$$UAE -lpthread
+        $$CC -m64 -fPIC -Wno-attributes -I"$$SDK/include" -I"$$ROOT" -I"$$EDL_DIR" -c "$(location u_util.c)" -o "$(@D)/u_util.o"
+        $$CC -m64 -o "$@" "$(@D)/sidecar_u.o" "$(@D)/u_main.o" "$(@D)/u_util.o" -L"$$SDK/lib64" -l$$URTS -l$$UAE -lpthread
     """,
     message = "Building untrusted sidecar binary",
 )

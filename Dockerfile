@@ -36,6 +36,9 @@ ENV LD_LIBRARY_PATH=$SGX_SDK/sdk_libs
 # Set simulation mode
 ENV SGX_MODE=SIM
 
+# Only users in sidecar-owners may run the sidecar binary
+RUN groupadd sidecar-owners && usermod -aG sidecar-owners root
+
 # Source SGX environment in bashrc so it's available in interactive shells
 RUN echo 'source $SGX_SDK/environment' >> /root/.bashrc
 
