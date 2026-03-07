@@ -96,4 +96,20 @@ configuration of the enclave. The project is built with **Bazel** (see `BUILD`, 
 
 ## Execution mode
 
-The Docker image runs in simulation mode (`SGX_MODE=SIM`) by default. To run on actual SGX hardware, use an environment with the SGX driver, set `SGX_MODE=HW`, and ensure `SGX_SDK` points at the SDK.
+The Docker image runs in simulation mode (`SGX_MODE=SIM`) by default. To run on SGX hardware, build with `SGX_MODE=HW`:
+
+```bash
+bazel run //:docker_build -- --build-arg SGX_MODE=HW
+```
+
+Attestation uses `ECDSA/DCAP` via `libsgx-dcap-ql`. Quote generation requires SGX hardware. In simulation mode the quote step will fail. See `docs/ATTESTATION.md` for the full flow and client verification.
+
+### Azure DCsv3
+
+On Azure confidential VMs (DCsv3), build with the Azure QPL:
+
+```bash
+bazel run //:docker_build -- --build-arg SGX_MODE=HW --build-arg AZURE=1
+```
+
+This installs `az-dcap-client` which routes collateral requests to Azure THIM instead of Intel PCS. The run script auto-detects SGX devices and the AESM socket. See `docs/ATTESTATION.md` for details.

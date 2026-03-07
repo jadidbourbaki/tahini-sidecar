@@ -41,12 +41,16 @@ genrule(
         EDL_FILES="$(locations :edl_gen)"
         EDL_DIR="$$(dirname "$$(echo "$$EDL_FILES" | awk '{print $$1}')")"
         ROOT="$$(dirname $(location sidecar.h))"
-        if [ "$$SGX_MODE" = "HW" ]; then URTS=sgx_urts; UAE=sgx_uae_service; else URTS=sgx_urts_sim; UAE=sgx_uae_service_sim; fi
+        if [ "$$SGX_MODE" = "HW" ]; then URTS=sgx_urts; else URTS=sgx_urts_sim; fi
+        DCAP_HOME="$${DCAP_HOME:-/usr}"
+        DCAP_INC="$$DCAP_HOME/include"
+        DCAP_LIB="$$DCAP_HOME/lib64"
+        [ -d "$$DCAP_HOME/lib/x86_64-linux-gnu" ] && DCAP_LIB="$$DCAP_HOME/lib/x86_64-linux-gnu"
         CC="$${CC:-gcc}"
-        $$CC -m64 -fPIC -Wno-attributes -I"$$SDK/include" -I"$$ROOT" -I"$$EDL_DIR" -c "$$EDL_DIR/sidecar_u.c" -o "$(@D)/sidecar_u.o"
-        $$CC -m64 -fPIC -Wno-attributes -I"$$SDK/include" -I"$$ROOT" -I"$$EDL_DIR" -c "$(location u_main.c)" -o "$(@D)/u_main.o"
-        $$CC -m64 -fPIC -Wno-attributes -I"$$SDK/include" -I"$$ROOT" -I"$$EDL_DIR" -c "$(location u_util.c)" -o "$(@D)/u_util.o"
-        $$CC -m64 -o "$@" "$(@D)/sidecar_u.o" "$(@D)/u_main.o" "$(@D)/u_util.o" -L"$$SDK/lib64" -l$$URTS -l$$UAE -lpthread
+        $$CC -m64 -fPIC -Wno-attributes -I"$$SDK/include" -I"$$DCAP_INC" -I"$$ROOT" -I"$$EDL_DIR" -c "$$EDL_DIR/sidecar_u.c" -o "$(@D)/sidecar_u.o"
+        $$CC -m64 -fPIC -Wno-attributes -I"$$SDK/include" -I"$$DCAP_INC" -I"$$ROOT" -I"$$EDL_DIR" -c "$(location u_main.c)" -o "$(@D)/u_main.o"
+        $$CC -m64 -fPIC -Wno-attributes -I"$$SDK/include" -I"$$DCAP_INC" -I"$$ROOT" -I"$$EDL_DIR" -c "$(location u_util.c)" -o "$(@D)/u_util.o"
+        $$CC -m64 -o "$@" "$(@D)/sidecar_u.o" "$(@D)/u_main.o" "$(@D)/u_util.o" -L"$$SDK/lib64" -L"$$DCAP_LIB" -l$$URTS -lsgx_dcap_ql -lpthread
     """,
     message = "Building untrusted sidecar binary",
 )

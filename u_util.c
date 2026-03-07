@@ -3,6 +3,29 @@
 #include <unistd.h>
 #include <grp.h>
 #include <stdio.h>
+#include <string.h>
+#include <sys/syscall.h>
+
+#include <sgx_report.h>
+#include <sgx_dcap_ql_wrapper.h>
+
+long ocall_syscall(long syscall_number, long arg1, long arg2, long arg3, long arg4, long arg5, long arg6) {
+    return syscall(syscall_number, arg1, arg2, arg3, arg4, arg5, arg6);
+}
+
+void ocall_copy_byte(void* dest, uint8_t byte) {
+    *((char*)dest) = (char)byte;
+}
+
+void bin_to_hex(const uint8_t* bin, size_t len, char* hex) {
+    const char hc[] = "0123456789abcdef";
+    for (size_t i = 0; i < len; i++) {
+        hex[i*2]     = hc[(bin[i] >> 4) & 0x0F];
+        hex[i*2 + 1] = hc[bin[i] & 0x0F];
+    }
+    hex[len*2] = '\0';
+}
+
 
 int validate_user(void) {
     const char* error_prefix = "error in validate_user: ";
@@ -40,7 +63,9 @@ int validate_user(void) {
     }
 
     int found = 0;
-    for (int i = 0; i < n; i++) {
+
+    int i;
+    for (i = 0; i < n; i++) {
         // check if the process is in any of the supplementary group IDs
         if (list[i] == want) {
             found = 1;
@@ -50,4 +75,59 @@ int validate_user(void) {
 
     free(list);
     return found;
+}
+
+
+struct enclave_quote get_enclave_quote(const sgx_report_t* report) {
+    const char* error_prefix = "error in get_enclave_quote: ";
+
+    struct enclave_quote quote = {0};
+
+    if (!report) {
+        fprintf(stderr, "%s report is NULL\n", error_prefix);
+        quote.error = -1;
+        return quote;
+    }
+
+    uint32_t quote_size = 0;
+    quote3_error_t qe = sgx_qe_get_quote_size(&quote_size);
+
+    if (qe != SGX_QL_SUCCESS) {
+        fprintf(stderr, "%s DCAP sgx_qe_get_quote_size failed (0x%x)\n", error_prefix, (unsigned)qe);
+        quote.error = -1;
+        return quote;
+    }
+
+    quote.quote_size = quote_size;
+    quote.quote = malloc(quote_size);
+    if (!quote.quote) {
+        fprintf(stderr, "%s failed to allocate memory for quote\n", error_prefix);
+        quote.error = -1;
+        return quote;
+    }
+
+    qe = sgx_qe_get_quote(report, quote_size, quote.quote);
+    if (qe != SGX_QL_SUCCESS) {
+        fprintf(stderr, "%s DCAP sgx_qe_get_quote failed (0x%x)\n", error_prefix, (unsigned)qe);
+        free(quote.quote);
+        quote.quote = NULL;
+        quote.quote_size = 0;
+        quote.error = -1;
+        return quote;
+    }
+
+    quote.error = 0;
+    return quote;
+}
+
+void free_enclave_quote(struct enclave_quote* quote) {
+    if (!quote) {
+        fprintf(stderr, "error in free_enclave_quote: quote is NULL\n");
+        return;
+    }
+
+    free(quote->quote);
+    quote->quote = NULL;
+    quote->quote_size = 0;
+    quote->error = 0;
 }
