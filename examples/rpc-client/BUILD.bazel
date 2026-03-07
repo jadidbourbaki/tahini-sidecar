@@ -1,0 +1,18 @@
+load("@rules_rust//rust:defs.bzl", "rust_binary")
+
+rust_binary(
+    name = "rpc-client",
+    srcs = ["src/main.rs"],
+    edition = "2021",
+    deps = [
+        "//third_party:fizz_rs",
+        "@crates//:base64",
+        "@crates//:clap",
+        "@crates//:reqwest",
+        "@crates//:serde",
+        "@crates//:serde_json",
+        "@crates//:sha2",
+        "@crates//:tokio",
+    ],
+    visibility = ["//visibility:public"],
+)

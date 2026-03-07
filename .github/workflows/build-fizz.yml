@@ -5,8 +5,13 @@ on:
     branches: [main]
     paths:
       - "third_party/fizz-rs/**"
+      - "third_party/generated/**"
+      - "third_party/compat/**"
+      - "third_party/BUILD.bazel"
       - "examples/rpc-server/**"
       - "examples/rpc-client/**"
+      - "MODULE.bazel"
+      - "rust_cxx_bridge.bzl"
       - ".github/workflows/build-fizz.yml"
   workflow_dispatch:
 
@@ -24,15 +29,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends \
-            build-essential wget libssl-dev curl git python3 cmake pkg-config \
-            libsodium-dev libevent-dev libdouble-conversion-dev libgflags-dev \
-            libgoogle-glog-dev libiberty-dev liblz4-dev libzstd-dev libsnappy-dev \
-            libbz2-dev liblzma-dev libunwind-dev libdwarf-dev libelf-dev libaio-dev \
-            libboost-all-dev autoconf automake libtool
 
       - name: Install Bazelisk
         run: |
@@ -58,70 +54,33 @@ jobs:
           name: fizz-sidecar
           path: fizz-sidecar
 
-  rpc-server:
-    name: Build rpc-server (Rust)
+  rpc-binaries:
+    name: Build RPC server + client (Rust, Bazel)
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Install system dependencies
+      - name: Install Bazelisk
         run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends \
-            build-essential wget libssl-dev curl git python3 cmake pkg-config \
-            libsodium-dev libevent-dev libdouble-conversion-dev libgflags-dev \
-            libgoogle-glog-dev libiberty-dev liblz4-dev libzstd-dev libsnappy-dev \
-            libbz2-dev liblzma-dev libunwind-dev libdwarf-dev libelf-dev libaio-dev \
-            libboost-all-dev autoconf automake libtool
-          cd third_party/fizz-rs/third_party/fizz && \
-            sudo python3 build/fbcode_builder/getdeps.py --allow-system-packages install-system-deps --recursive fizz
+          sudo wget -qO /usr/local/bin/bazel \
+            https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64
+          sudo chmod +x /usr/local/bin/bazel
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Build rpc-server and rpc-client
+        run: bazel build //examples/rpc-server //examples/rpc-client
 
-      - name: Build rpc-server
-        run: cd examples/rpc-server && cargo build --release || (cat /tmp/fizz.log 2>/dev/null; exit 1)
-
-      - name: Package binary
+      - name: Package binaries
         run: |
-          cp examples/rpc-server/target/release/rpc-server rpc-server
-          chmod +x rpc-server
+          cp bazel-bin/examples/rpc-server/rpc-server rpc-server
+          cp bazel-bin/examples/rpc-client/rpc-client rpc-client
+          chmod +x rpc-server rpc-client
 
       - uses: actions/upload-artifact@v4
         with:
           name: rpc-server
           path: rpc-server
-
-  rpc-client:
-    name: Build rpc-client (Rust)
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends \
-            build-essential wget libssl-dev curl git python3 cmake pkg-config \
-            libsodium-dev libevent-dev libdouble-conversion-dev libgflags-dev \
-            libgoogle-glog-dev libiberty-dev liblz4-dev libzstd-dev libsnappy-dev \
-            libbz2-dev liblzma-dev libunwind-dev libdwarf-dev libelf-dev libaio-dev \
-            libboost-all-dev autoconf automake libtool
-          cd third_party/fizz-rs/third_party/fizz && \
-            sudo python3 build/fbcode_builder/getdeps.py --allow-system-packages install-system-deps --recursive fizz
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build rpc-client
-        run: cd examples/rpc-client && cargo build --release || (cat /tmp/fizz.log 2>/dev/null; exit 1)
-
-      - name: Package binary
-        run: |
-          cp examples/rpc-client/target/release/rpc-client rpc-client
-          chmod +x rpc-client
 
       - uses: actions/upload-artifact@v4
         with:
@@ -130,7 +89,7 @@ jobs:
 
   release:
     name: Upload to GitHub Release
-    needs: [fizz-sidecar, rpc-server, rpc-client]
+    needs: [fizz-sidecar, rpc-binaries]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/download-artifact@v4

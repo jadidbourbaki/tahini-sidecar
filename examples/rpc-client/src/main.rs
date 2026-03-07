@@ -165,7 +165,7 @@ fn verify_report_data(
         return Err(format!(
             "public key commitment mismatch: report_data has {}, expected H(pubkey)={}",
             hex::encode(rd_pubkey_commitment),
-            hex::encode(pubkey_hash)
+            hex::encode(&pubkey_hash)
         ));
     }
 
