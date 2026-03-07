@@ -65,8 +65,11 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
+    const char* enclave_path = getenv("TAHINI_ENCLAVE");
+    if (!enclave_path) enclave_path = TAHINI_ENCLAVE_FILE_DEFAULT;
+
     sgx_enclave_id_t eid = 0;
-    sgx_status_t ret = sgx_create_enclave(TAHINI_ENCLAVE_FILE, SGX_DEBUG_FLAG, NULL, NULL, &eid, NULL);
+    sgx_status_t ret = sgx_create_enclave(enclave_path, SGX_DEBUG_FLAG, NULL, NULL, &eid, NULL);
     if (ret != SGX_SUCCESS) {
         fprintf(stderr, "failed to create enclave (0x%x)\n", ret);
         return EXIT_FAILURE;

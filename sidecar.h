@@ -7,9 +7,9 @@
 #define TAHINI_KEY_SIZE 32  
 // TAHINI_PUBKEY_SIZE is the full public key size in bytes for NIST P-256 (32 bytes x + 32 bytes y)
 #define TAHINI_PUBKEY_SIZE 64 
-// TAHINI_ENCLAVE_FILE is the path to the enclave file
-// We assume the sidecar is run from the repo root so the enclave is in bazel-bin/enclave.signed.so.
-#define TAHINI_ENCLAVE_FILE "bazel-bin/enclave.signed.so"
+// TAHINI_ENCLAVE_FILE is the default path to the enclave file.
+// Override at runtime via the TAHINI_ENCLAVE environment variable.
+#define TAHINI_ENCLAVE_FILE_DEFAULT "bazel-bin/enclave.signed.so"
 
 // CHUNK_SIZE is the size of the chunk to read the binary in
 #define TAHINI_CHUNK_SIZE 4096

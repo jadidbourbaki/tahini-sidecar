@@ -40,7 +40,7 @@ echo "[server-entrypoint] launching tahini sidecar..."
 # Mark server as ready after a short delay (sidecar + server startup)
 (sleep 5 && touch "$SHARED_DIR/.server-ready") &
 
-exec ./bazel-bin/sidecar \
+exec /usr/local/bin/sidecar \
     --tahini-dc "$SHARED_DIR/fizz_server.json" \
     --tahini-dc-cert "$SHARED_DIR/fizz.crt" \
     --tahini-dc-sig "$SHARED_DIR/fizz_client.json" \

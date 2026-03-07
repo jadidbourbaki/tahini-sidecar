@@ -74,19 +74,24 @@ RUN echo 'source $SGX_SDK/environment' >> /root/.bashrc
 
 # Download pre-built fizz binaries from GitHub Releases
 RUN wget -qO /usr/local/bin/fizz-sidecar \
-      "https://github.com/${GITHUB_REPO}/releases/download/${FIZZ_RELEASE_TAG}/fizz-sidecar" && \
+    "https://github.com/${GITHUB_REPO}/releases/download/${FIZZ_RELEASE_TAG}/fizz-sidecar" && \
     chmod +x /usr/local/bin/fizz-sidecar
 RUN wget -qO /usr/local/bin/rpc-server \
-      "https://github.com/${GITHUB_REPO}/releases/download/${FIZZ_RELEASE_TAG}/rpc-server" && \
+    "https://github.com/${GITHUB_REPO}/releases/download/${FIZZ_RELEASE_TAG}/rpc-server" && \
     chmod +x /usr/local/bin/rpc-server
 
 # --- Build stage ---
 WORKDIR /workspace
 COPY . .
 
-# Build the tahini sidecar (C, Bazel)
+# Build the tahini sidecar (C, Bazel), then copy outputs to a fixed path
+# (bazel-bin is a symlink into the cache mount, which isn't available at runtime)
 RUN --mount=type=cache,target=/root/.cache/bazel \
-    . $SGX_SDK/environment && bazel build //:sidecar_bin //:enclave_signed
+    . $SGX_SDK/environment && bazel build //:sidecar_bin //:enclave_signed \
+    && cp bazel-bin/sidecar /usr/local/bin/sidecar \
+    && cp bazel-bin/enclave.signed.so /usr/local/lib/enclave.signed.so
+
+ENV TAHINI_ENCLAVE=/usr/local/lib/enclave.signed.so
 
 # Copy entrypoint
 COPY scripts/server-entrypoint.sh /usr/local/bin/server-entrypoint.sh
