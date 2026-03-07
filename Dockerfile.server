@@ -34,19 +34,19 @@ RUN mkdir -p /etc/apt/keyrings && \
     curl -fsSLO https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key && \
     mv intel-sgx-deb.key /etc/apt/keyrings/intel-sgx-keyring.asc && \
     echo 'deb [signed-by=/etc/apt/keyrings/intel-sgx-keyring.asc arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu jammy main' \
-        > /etc/apt/sources.list.d/intel-sgx.list && \
+    > /etc/apt/sources.list.d/intel-sgx.list && \
     apt-get update && apt-get install -y --no-install-recommends \
-        libsgx-quote-ex libsgx-dcap-ql libsgx-dcap-ql-dev \
-        libsgx-enclave-common libsgx-urts \
+    libsgx-quote-ex libsgx-dcap-ql libsgx-dcap-ql-dev \
+    libsgx-enclave-common libsgx-urts \
     && rm -rf /var/lib/apt/lists/*
 
 # Azure DCAP client (conditional)
 RUN if [ "$AZURE" = "1" ]; then \
-        curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg && \
-        echo 'deb [signed-by=/etc/apt/keyrings/microsoft.gpg arch=amd64] https://packages.microsoft.com/ubuntu/22.04/prod jammy main' \
-            > /etc/apt/sources.list.d/microsoft.list && \
-        apt-get update && apt-get install -y --no-install-recommends az-dcap-client && \
-        rm -rf /var/lib/apt/lists/* ; \
+    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg && \
+    echo 'deb [signed-by=/etc/apt/keyrings/microsoft.gpg arch=amd64] https://packages.microsoft.com/ubuntu/22.04/prod jammy main' \
+    > /etc/apt/sources.list.d/microsoft.list && \
+    apt-get update && apt-get install -y --no-install-recommends az-dcap-client && \
+    rm -rf /var/lib/apt/lists/* ; \
     fi
 
 # Intel SGX SDK
@@ -102,7 +102,7 @@ WORKDIR /workspace
 COPY . .
 
 # Build the tahini sidecar (C, Bazel)
-RUN source $SGX_SDK/environment && bazel build //:sidecar_bin //:enclave_signed
+RUN . $SGX_SDK/environment && bazel build //:sidecar_bin //:enclave_signed
 
 # Build fizz-sidecar (C++, Bazel) for delegated credential generation
 RUN cd third_party/fizz-rs/demo/fizz-sidecar && bazel build :sidecar
