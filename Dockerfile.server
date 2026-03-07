@@ -105,7 +105,10 @@ COPY . .
 RUN . $SGX_SDK/environment && bazel build //:sidecar_bin //:enclave_signed
 
 # Build fizz-sidecar (C++, Bazel) for delegated credential generation
-RUN cd third_party/fizz-rs/demo/fizz-sidecar && bazel build :sidecar
+# rules_python refuses to run as root, so we use a non-root user for this step
+RUN useradd -m builder && \
+    cd third_party/fizz-rs/demo/fizz-sidecar && \
+    HOME=/home/builder runuser -u builder -- bazel build :sidecar
 
 # Build RPC server (Rust, cargo)
 RUN cd examples/rpc-server && cargo build --release
