@@ -155,3 +155,16 @@ sh_binary(
     srcs = ["scripts/docker-run.sh"],
     visibility = ["//visibility:public"],
 )
+
+# End-to-end demo (SGX HW mode): bazel run //:demo
+sh_binary(
+    name = "demo",
+    srcs = ["scripts/demo.sh"],
+    data = [
+        "docker-compose.yml",
+        "docker-compose.sgx.yml",
+        "Dockerfile.server",
+        "Dockerfile.client",
+    ],
+    visibility = ["//visibility:public"],
+)

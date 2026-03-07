@@ -1,8 +1,15 @@
-# SGX hardware override — use alongside docker-compose.yml on SGX hosts:
+# SGX hardware override — use on Azure DCsv3 (or any SGX-capable host):
 #   docker compose -f docker-compose.yml -f docker-compose.sgx.yml up --build
 
 services:
   server:
+    build:
+      args:
+        SGX_MODE: HW
+        AZURE: "1"
     devices:
       - /dev/sgx_enclave:/dev/sgx_enclave
       - /dev/sgx_provision:/dev/sgx_provision
+    volumes:
+      - shared-data:/shared
+      - /var/run/aesmd:/var/run/aesmd

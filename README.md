@@ -126,11 +126,13 @@ To set up, first ensure that the submodule is added and up to date:
 git submodule update --init --recursive
 ```
 
-The demo runs two containers. A server composed of the SGX sidecar and the RPC server with delegated TLS, and a client which connects and verifies the delegated credential. To build these containers on an Azure confidential VM, first run
+The demo runs two containers. A server composed of the SGX sidecar and the RPC server with delegated TLS, and a client which connects and verifies the delegated credential. To build and run the demo on an Azure confidential VM:
 
 ```bash
-SGX_MODE=HW AZURE=1 docker compose -f docker-compose.yml -f docker-compose.sgx.yml up --build
+bazel run //:demo
 ```
+
+This single command builds both containers with `SGX_MODE=HW` and `AZURE=1`, passes through the SGX devices and AESM socket, and starts the full server + client flow.
 
 Here is what happens:
 
