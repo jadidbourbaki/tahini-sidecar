@@ -31,3 +31,15 @@ And then run the docker. We have a script, `docker-run.sh`, that auto-detects SG
 ```bash
 bazel run //:docker_run
 ```
+
+Inside the docker, you can build the sidecar (and optionally a hello world example):
+
+```bash
+bazel build //:sidecar_bin //:enclave_signed //examples:hello
+```
+
+Then you can run the hello world example with the sidecar:
+
+```bash
+./bazel-bin/sidecar ./bazel-bin/examples/hello
+```

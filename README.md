@@ -113,3 +113,44 @@ bazel run //:docker_build -- --build-arg SGX_MODE=HW --build-arg AZURE=1
 ```
 
 This installs `az-dcap-client` which routes collateral requests to Azure THIM instead of Intel PCS. The run script auto-detects SGX devices and the AESM socket. See `docs/ATTESTATION.md` for details.
+
+## End to End Demonstration with Delegated TLS and fizz-rs
+
+This required a Microsoft Azure confidential VM. Set up a confidential Intel SGX VM using this [guide](https://learn.microsoft.com/en-us/azure/confidential-computing/quick-create-portal) from Microsoft Azure. Clone this repository in the VM.
+
+The sidecar can launch an RPC server that uses [delegated credentials](https://datatracker.ietf.org/doc/rfc9345/) (RFC 9345) for TLS, providing two trust layers. The first layer is the SGX attestation, which proves to the RPC client that the right code / binary is running for the RPC server. The second layer, Delegated TLS, proves that the communication channel can be trusted, i.e., it is encrypted with a short-lived credential signed by a trusted certificate authority (CA). This second part uses [fizz-rs](https://github.com/BUSPACELab/fizz-rs) which is included as a submodule at `third_party/fizz-rs`.
+
+To set up, first ensure that the submodule is added and up to date:
+
+```bash
+git submodule update --init --recursive
+```
+
+The demo runs two containers. A server composed of the SGX sidecar and the RPC server with delegated TLS, and a client which connects and verifies the delegated credential. To build these containers on an Azure confidential VM, first run
+
+```bash
+SGX_MODE=HW AZURE=1 docker compose -f docker-compose.yml -f docker-compose.sgx.yml up --build
+```
+
+Here is what happens:
+
+1. The server container generates a TLS certificate with the delegated credential extension.
+2. The fizz-sidecar which is developed in C++ generates a delegated credential i.e short-lived cert and verification info.
+3. The tahini sidecar hashes the RPC server binary, does SGX attestation, and launches it via `execveat`.
+4. The RPC server starts listening on port 8443 with the delegated credential.
+5. The client container reads the verification info from a shared volume and connects over delegated TLS.
+6. The client verifies the delegated credential during the TLS handshake.
+
+What to observe: the server container's stderr shows the SGX attestation output including the binary hash, the DCAP quote, and the verification info. The client container's stderr shows the successful TLS handshake and message exchange.
+
+### Sidecar DC flags
+
+The sidecar accepts optional flags for delegated credential integration:
+
+```bash
+./sidecar [--tahini-dc <server.json>] [--tahini-dc-cert <cert.pem>] [--tahini-dc-sig <client.json>] <service> [args...]
+```
+
+- `--tahini-dc`: path to the server delegated credential JSON (forwarded to the service binary)
+- `--tahini-dc-cert`: path to the parent TLS certificate (forwarded to the service binary)
+- `--tahini-dc-sig`: path to client verification info JSON (printed to stderr for clients)

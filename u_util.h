@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <sgx_report.h>
 
 #define TAHINI_SIDECAR_OWNERS_GROUP "sidecar-owners"
@@ -45,5 +46,9 @@ void ocall_copy_byte(void* dest, uint8_t byte);
 
 // bin_to_hex converts len bytes of bin into a null-terminated hex string. hex must be at least len*2+1 bytes.
 void bin_to_hex(const uint8_t* bin, size_t len, char* hex);
+
+// dump_file_to_stream reads a file and writes its contents to the given FILE* stream.
+// Returns 0 on success, -1 on failure.
+int dump_file_to_stream(const char* path, FILE* stream);
 
 #endif /* TAHINI_U_UTIL_H */

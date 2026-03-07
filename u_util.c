@@ -131,3 +131,18 @@ void free_enclave_quote(struct enclave_quote* quote) {
     quote->quote_size = 0;
     quote->error = 0;
 }
+
+int dump_file_to_stream(const char* path, FILE* stream) {
+    FILE* f = fopen(path, "r");
+    if (!f) {
+        fprintf(stderr, "error: failed to open %s\n", path);
+        return -1;
+    }
+    char buf[4096];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), f)) > 0) {
+        fwrite(buf, 1, n, stream);
+    }
+    fclose(f);
+    return 0;
+}

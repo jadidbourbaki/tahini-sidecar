@@ -1,0 +1,49 @@
+# Tahini Sidecar — Distributed delegated TLS demo
+#
+# Two containers demonstrating the two trust layers:
+#   1. SGX attestation (server container) — proves code integrity
+#   2. Delegated TLS (between containers) — proves channel security
+#
+# Usage (simulation mode):
+#   docker compose up --build
+#
+# Usage (SGX hardware mode on Azure DCsv3):
+#   docker compose -f docker-compose.yml -f docker-compose.sgx.yml up --build
+#   (set SGX_MODE=HW AZURE=1 in your environment)
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+      args:
+        SGX_MODE: ${SGX_MODE:-SIM}
+        AZURE: ${AZURE:-0}
+    volumes:
+      - shared-data:/shared
+    networks:
+      - tahini-net
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /shared/.server-ready"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+      start_period: 10s
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    volumes:
+      - shared-data:/shared:ro
+    networks:
+      - tahini-net
+    depends_on:
+      server:
+        condition: service_healthy
+
+volumes:
+  shared-data:
+
+networks:
+  tahini-net:

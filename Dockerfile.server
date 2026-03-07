@@ -1,0 +1,119 @@
+# Tahini Sidecar — Server container (SGX + delegated TLS)
+#
+# Builds:  tahini sidecar, fizz-sidecar (credential generator), RPC server
+# Runtime: generates DC, runs sidecar which launches the RPC server
+
+ARG SGX_MODE=SIM
+ARG AZURE=0
+
+FROM ubuntu:22.04
+
+ARG SGX_MODE
+ARG AZURE
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Core build tools
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    wget \
+    libssl-dev \
+    unzip \
+    gnupg \
+    apt-transport-https \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Bazel (via Bazelisk)
+RUN wget -qO /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 \
+    && chmod +x /usr/local/bin/bazel
+
+# Intel SGX repo + DCAP libraries
+RUN mkdir -p /etc/apt/keyrings && \
+    curl -fsSLO https://download.01.org/intel-sgx/sgx_repo/ubuntu/intel-sgx-deb.key && \
+    mv intel-sgx-deb.key /etc/apt/keyrings/intel-sgx-keyring.asc && \
+    echo 'deb [signed-by=/etc/apt/keyrings/intel-sgx-keyring.asc arch=amd64] https://download.01.org/intel-sgx/sgx_repo/ubuntu jammy main' \
+        > /etc/apt/sources.list.d/intel-sgx.list && \
+    apt-get update && apt-get install -y --no-install-recommends \
+        libsgx-quote-ex libsgx-dcap-ql libsgx-dcap-ql-dev \
+        libsgx-enclave-common libsgx-urts \
+    && rm -rf /var/lib/apt/lists/*
+
+# Azure DCAP client (conditional)
+RUN if [ "$AZURE" = "1" ]; then \
+        curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg && \
+        echo 'deb [signed-by=/etc/apt/keyrings/microsoft.gpg arch=amd64] https://packages.microsoft.com/ubuntu/22.04/prod jammy main' \
+            > /etc/apt/sources.list.d/microsoft.list && \
+        apt-get update && apt-get install -y --no-install-recommends az-dcap-client && \
+        rm -rf /var/lib/apt/lists/* ; \
+    fi
+
+# Intel SGX SDK
+WORKDIR /tmp
+RUN wget https://download.01.org/intel-sgx/sgx-linux/2.27/distro/ubuntu22.04-server/sgx_linux_x64_sdk_2.27.100.1.bin && \
+    chmod +x sgx_linux_x64_sdk_2.27.100.1.bin && \
+    ./sgx_linux_x64_sdk_2.27.100.1.bin --prefix /opt/intel && \
+    rm -f sgx_linux_x64_sdk_2.27.100.1.bin
+
+ENV SGX_SDK=/opt/intel/sgxsdk
+ENV PATH=$SGX_SDK/bin:$SGX_SDK/bin/x64:$PATH
+ENV PKG_CONFIG_PATH=$SGX_SDK/pkgconfig
+ENV LD_LIBRARY_PATH=$SGX_SDK/sdk_libs
+ENV SGX_MODE=${SGX_MODE}
+
+# fizz_rs system dependencies (fizz + folly build from source via build.rs)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    cmake \
+    pkg-config \
+    libsodium-dev \
+    libevent-dev \
+    libdouble-conversion-dev \
+    libgflags-dev \
+    libgoogle-glog-dev \
+    libiberty-dev \
+    liblz4-dev \
+    libzstd-dev \
+    libsnappy-dev \
+    libbz2-dev \
+    liblzma-dev \
+    libunwind-dev \
+    libdwarf-dev \
+    libelf-dev \
+    libaio-dev \
+    libboost-all-dev \
+    autoconf \
+    automake \
+    libtool \
+    && rm -rf /var/lib/apt/lists/*
+
+# Rust toolchain
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# sidecar-owners group
+RUN groupadd sidecar-owners && usermod -aG sidecar-owners root
+
+RUN echo 'source $SGX_SDK/environment' >> /root/.bashrc
+
+# --- Build stage ---
+WORKDIR /workspace
+COPY . .
+
+# Build the tahini sidecar (C, Bazel)
+RUN source $SGX_SDK/environment && bazel build //:sidecar_bin //:enclave_signed
+
+# Build fizz-sidecar (C++, Bazel) for delegated credential generation
+RUN cd third_party/fizz-rs/demo/fizz-sidecar && bazel build :sidecar
+
+# Build RPC server (Rust, cargo)
+RUN cd examples/rpc-server && cargo build --release
+
+# Copy entrypoint
+COPY scripts/server-entrypoint.sh /usr/local/bin/server-entrypoint.sh
+RUN chmod +x /usr/local/bin/server-entrypoint.sh
+
+EXPOSE 8443
+
+ENTRYPOINT ["/usr/local/bin/server-entrypoint.sh"]

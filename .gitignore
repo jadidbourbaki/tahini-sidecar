@@ -25,3 +25,5 @@ Enclave_u.h
 
 # Examples
 examples/hello
+examples/rpc-server/target/
+examples/rpc-client/target/

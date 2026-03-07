@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <sys/syscall.h>
 #include <errno.h>
 #include <sgx_urts.h>
@@ -11,11 +12,49 @@
 #include "sidecar.h"
 #include "u_util.h"
 
+static void usage(const char* prog) {
+    fprintf(stderr,
+        "usage: %s [options] <service-binary> [service-args...]\n"
+        "\n"
+        "options:\n"
+        "  --tahini-dc <path>       server delegated credential JSON\n"
+        "  --tahini-dc-cert <path>  parent TLS certificate (public)\n"
+        "  --tahini-dc-sig <path>   client verification info JSON\n",
+        prog);
+}
+
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "usage: %s <service-binary> [args...]\n", argv[0]);
+    const char* dc_server_path = NULL;
+    const char* dc_cert_path = NULL;
+    const char* dc_sig_path = NULL;
+
+    static struct option long_options[] = {
+        {"tahini-dc",      required_argument, NULL, 'd'},
+        {"tahini-dc-cert", required_argument, NULL, 'c'},
+        {"tahini-dc-sig",  required_argument, NULL, 's'},
+        {NULL, 0, NULL, 0}
+    };
+
+    // '+' stops getopt at the first non-option arg (the service binary)
+    int opt;
+    while ((opt = getopt_long(argc, argv, "+", long_options, NULL)) != -1) {
+        switch (opt) {
+            case 'd': dc_server_path = optarg; break;
+            case 'c': dc_cert_path   = optarg; break;
+            case 's': dc_sig_path    = optarg; break;
+            default:
+                usage(argv[0]);
+                return EXIT_FAILURE;
+        }
+    }
+
+    if (optind >= argc) {
+        usage(argv[0]);
         return EXIT_FAILURE;
     }
+
+    const char* service_binary = argv[optind];
+    int service_args_start = optind + 1;
 
     if (!validate_user()) {
         fprintf(stderr, "error: permission denied (must be in group %s)\n", TAHINI_SIDECAR_OWNERS_GROUP);
@@ -32,7 +71,7 @@ int main(int argc, char* argv[]) {
     // Step 1: hash the service binary into a memfd (TOCTOU-safe)
     int binary_fd = -1;
     sgx_status_t retval;
-    ret = ecall_hash_binary(eid, &retval, argv[1], &binary_fd);
+    ret = ecall_hash_binary(eid, &retval, service_binary, &binary_fd);
     if (ret != SGX_SUCCESS || retval != SGX_SUCCESS || binary_fd < 0) {
         fprintf(stderr, "ecall_hash_binary failed (ret=0x%x retval=0x%x)\n", ret, retval);
         sgx_destroy_enclave(eid);
@@ -86,30 +125,57 @@ int main(int argc, char* argv[]) {
     bin_to_hex(binary_hash, TAHINI_HASH_SIZE, hash_hex);
     fprintf(stderr, "tahini binary hash: %s\n", hash_hex);
 
-    char quote_hex[eq.quote_size * 2 + 1];
+    char* quote_hex = malloc((size_t)eq.quote_size * 2 + 1);
+    if (!quote_hex) {
+        fprintf(stderr, "failed to allocate quote hex buffer\n");
+        free_enclave_quote(&eq);
+        return EXIT_FAILURE;
+    }
     bin_to_hex(eq.quote, eq.quote_size, quote_hex);
     fprintf(stderr, "tahini quote (%u bytes): %s\n", eq.quote_size, quote_hex);
+    free(quote_hex);
 
     free_enclave_quote(&eq);
+
+    if (dc_sig_path) {
+        fprintf(stderr, "tahini dc verification info: ");
+        dump_file_to_stream(dc_sig_path, stderr);
+        fprintf(stderr, "\n");
+    }
 
     // Step 6: exec the service binary from the memfd (exact bytes we hashed)
     char secret_hex[TAHINI_KEY_SIZE * 2 + 1];
     bin_to_hex(secret_key, TAHINI_KEY_SIZE, secret_hex);
 
-    // Build argv: [binary_path, "--tahini-secret", secret_hex, service_args..., NULL]
-    int svc_argc = argc - 1;
-    char** svc_argv = malloc((size_t)(svc_argc + 3) * sizeof(char*));
+    // Count how many extra DC args we need to forward
+    int dc_extra = 0;
+    if (dc_server_path) dc_extra += 2;
+    if (dc_cert_path)   dc_extra += 2;
+
+    int svc_extra_args = argc - service_args_start;
+    int svc_total = 1 + 2 + dc_extra + svc_extra_args + 1; // binary + secret pair + dc pairs + extra + NULL
+    char** svc_argv = malloc((size_t)svc_total * sizeof(char*));
     if (!svc_argv) {
         fprintf(stderr, "failed to allocate argv\n");
         return EXIT_FAILURE;
     }
-    svc_argv[0] = argv[1];
-    svc_argv[1] = "--tahini-secret";
-    svc_argv[2] = secret_hex;
-    for (int i = 2; i < argc; i++) {
-        svc_argv[i + 1] = argv[i];
+
+    int idx = 0;
+    svc_argv[idx++] = (char*)service_binary;
+    svc_argv[idx++] = "--tahini-secret";
+    svc_argv[idx++] = secret_hex;
+    if (dc_server_path) {
+        svc_argv[idx++] = "--tahini-dc";
+        svc_argv[idx++] = (char*)dc_server_path;
     }
-    svc_argv[svc_argc + 2] = NULL;
+    if (dc_cert_path) {
+        svc_argv[idx++] = "--tahini-dc-cert";
+        svc_argv[idx++] = (char*)dc_cert_path;
+    }
+    for (int i = service_args_start; i < argc; i++) {
+        svc_argv[idx++] = argv[i];
+    }
+    svc_argv[idx] = NULL;
 
     lseek(binary_fd, 0, SEEK_SET);
     syscall(SYS_execveat, binary_fd, "", svc_argv, NULL, AT_EMPTY_PATH);

@@ -1,0 +1,8 @@
+# SGX hardware override — use alongside docker-compose.yml on SGX hosts:
+#   docker compose -f docker-compose.yml -f docker-compose.sgx.yml up --build
+
+services:
+  server:
+    devices:
+      - /dev/sgx_enclave:/dev/sgx_enclave
+      - /dev/sgx_provision:/dev/sgx_provision
