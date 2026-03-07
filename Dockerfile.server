@@ -105,8 +105,12 @@ COPY . .
 RUN . $SGX_SDK/environment && bazel build //:sidecar_bin //:enclave_signed
 
 # Build fizz-sidecar (C++, Bazel) for delegated credential generation
-# rules_python refuses to run as root, so we use a non-root user for this step
+# rules_python refuses to run as root, so we use a non-root user for this step.
+# fizz.crt/fizz.key are runtime artifacts but listed as BUILD data deps; create placeholders.
 RUN useradd -m builder && \
+    touch third_party/fizz-rs/demo/fizz-sidecar/fizz.crt \
+          third_party/fizz-rs/demo/fizz-sidecar/fizz.key && \
+    chown -R builder:builder third_party/fizz-rs/demo/fizz-sidecar && \
     cd third_party/fizz-rs/demo/fizz-sidecar && \
     HOME=/home/builder runuser -u builder -- bazel build :sidecar
 
