@@ -4,10 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      - 'third_party/fizz-rs/**'
-      - 'examples/rpc-server/**'
-      - 'examples/rpc-client/**'
-      - '.github/workflows/build-fizz.yml'
+      - "third_party/fizz-rs/**"
+      - "examples/rpc-server/**"
+      - "examples/rpc-client/**"
+      - ".github/workflows/build-fizz.yml"
   workflow_dispatch:
 
 permissions:
@@ -36,9 +36,9 @@ jobs:
 
       - name: Install Bazelisk
         run: |
-          wget -qO /usr/local/bin/bazel \
+          sudo wget -qO /usr/local/bin/bazel \
             https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64
-          chmod +x /usr/local/bin/bazel
+          sudo chmod +x /usr/local/bin/bazel
 
       - name: Create placeholder cert files
         run: |
