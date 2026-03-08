@@ -17,11 +17,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     wget \
     netcat-openbsd \
+    libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Download pre-built rpc-client from GitHub Releases
 RUN wget -qO /usr/local/bin/rpc-client \
-      "https://github.com/${GITHUB_REPO}/releases/download/${FIZZ_RELEASE_TAG}/rpc-client" && \
+    "https://github.com/${GITHUB_REPO}/releases/download/${FIZZ_RELEASE_TAG}/rpc-client" && \
     chmod +x /usr/local/bin/rpc-client
 
 # Copy entrypoint

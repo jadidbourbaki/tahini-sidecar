@@ -8,8 +8,9 @@ use sha2::{Digest, Sha256};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-// Default MAA endpoint for Azure Attestation
-const DEFAULT_MAA_ENDPOINT: &str = "https://sharedeus.attest.azure.net";
+// Default MAA endpoint for Azure Attestation (East US shared provider).
+// Format: https://shared{region}.{region}.attest.azure.net
+const DEFAULT_MAA_ENDPOINT: &str = "https://sharedeus.eus.attest.azure.net";
 
 #[derive(Parser)]
 #[command(about = "Tahini RPC client — verifies SGX attestation then connects over delegated TLS")]

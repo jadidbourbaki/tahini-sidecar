@@ -5,6 +5,7 @@ set -e
 SHARED_DIR="/shared"
 WORKSPACE="/workspace"
 SERVER_ADDR="server:8443"
+MAA_ENDPOINT="${MAA_ENDPOINT:-https://sharedeus.eus.attest.azure.net}"
 
 echo "[client-entrypoint] waiting for delegated credential from server..."
 
@@ -53,4 +54,5 @@ exec /usr/local/bin/rpc-client \
     --attestation "$SHARED_DIR/attestation.json" \
     --dc-sig "$SHARED_DIR/fizz_client.json" \
     --dc-cert "$SHARED_DIR/fizz.crt" \
-    --server "$SERVER_ADDR"
+    --server "$SERVER_ADDR" \
+    --maa-endpoint "$MAA_ENDPOINT"
