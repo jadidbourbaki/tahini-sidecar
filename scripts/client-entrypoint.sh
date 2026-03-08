@@ -20,11 +20,32 @@ while [ ! -f "$SHARED_DIR/.dc-ready" ]; do
     fi
 done
 
-echo "[client-entrypoint] credentials found, waiting for server to start listening..."
+echo "[client-entrypoint] credentials found, waiting for attestation data..."
 
-# Give the server a moment to start accepting connections
-# (the sidecar needs to do attestation + execveat + server bind)
-sleep 5
+# Wait for the sidecar to finish SGX/DCAP attestation and write the JSON.
+# In HW mode this can take 30+ seconds (QE init, collateral fetch from Azure).
+ELAPSED=0
+while [ ! -f "$SHARED_DIR/attestation.json" ]; do
+    sleep 2
+    ELAPSED=$((ELAPSED + 2))
+    if [ "$ELAPSED" -ge "$TIMEOUT" ]; then
+        echo "[client-entrypoint] ERROR: timed out waiting for attestation data"
+        exit 1
+    fi
+done
+
+echo "[client-entrypoint] attestation data ready, waiting for server to accept connections..."
+
+# Wait for the rpc-server (exec'd by sidecar after attestation) to bind.
+ELAPSED=0
+while ! nc -z server 8443 2>/dev/null; do
+    sleep 1
+    ELAPSED=$((ELAPSED + 1))
+    if [ "$ELAPSED" -ge "$TIMEOUT" ]; then
+        echo "[client-entrypoint] ERROR: timed out waiting for server on $SERVER_ADDR"
+        exit 1
+    fi
+done
 
 echo "[client-entrypoint] connecting to $SERVER_ADDR with delegated TLS..."
 

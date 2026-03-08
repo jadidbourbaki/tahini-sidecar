@@ -37,8 +37,12 @@ touch "$SHARED_DIR/.dc-ready"
 # then execveat the RPC server with --tahini-secret + DC args
 echo "[server-entrypoint] launching tahini sidecar..."
 
-# Mark server as ready after a short delay (sidecar + server startup)
-(sleep 5 && touch "$SHARED_DIR/.server-ready") &
+# Mark server as ready once the sidecar has written attestation.json.
+# DCAP attestation in HW mode can take 30+ seconds (QE init + collateral fetch).
+(
+    while [ ! -f "$SHARED_DIR/attestation.json" ]; do sleep 2; done
+    touch "$SHARED_DIR/.server-ready"
+) &
 
 exec /usr/local/bin/sidecar \
     --tahini-dc "$SHARED_DIR/fizz_server.json" \
