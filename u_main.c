@@ -132,15 +132,9 @@ int main(int argc, char* argv[]) {
     bin_to_hex(binary_hash, TAHINI_HASH_SIZE, hash_hex);
     fprintf(stderr, "tahini binary hash: %s\n", hash_hex);
 
-    char* quote_hex = malloc((size_t)eq.quote_size * 2 + 1);
-    if (!quote_hex) {
-        fprintf(stderr, "failed to allocate quote hex buffer\n");
-        free_enclave_quote(&eq);
-        return EXIT_FAILURE;
-    }
-    bin_to_hex(eq.quote, eq.quote_size, quote_hex);
-    fprintf(stderr, "tahini quote (%u bytes): %s\n", eq.quote_size, quote_hex);
-    free(quote_hex);
+    char quote_preview[33];
+    bin_to_hex(eq.quote, 16 < eq.quote_size ? 16 : eq.quote_size, quote_preview);
+    fprintf(stderr, "tahini quote (%u bytes): %s...\n", eq.quote_size, quote_preview);
 
     if (quote_out_path) {
         if (write_attestation_json(quote_out_path, eq.quote, eq.quote_size,

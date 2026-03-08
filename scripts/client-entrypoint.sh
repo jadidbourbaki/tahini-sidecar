@@ -9,7 +9,7 @@ SERVER_ADDR="server:8443"
 echo "[client-entrypoint] waiting for delegated credential from server..."
 
 # Wait for the server to publish credentials
-TIMEOUT=120
+TIMEOUT=300
 ELAPSED=0
 while [ ! -f "$SHARED_DIR/.dc-ready" ]; do
     sleep 1
